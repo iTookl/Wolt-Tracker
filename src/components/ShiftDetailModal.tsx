@@ -151,7 +151,7 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
                       type="datetime-local"
                       value={seg.start}
                       onChange={(e) => updateSeg(i, { start: e.target.value })}
-                      className="mt-0.5 w-full rounded-lg bg-ink-900 border border-white/10 px-2 py-2 text-sm outline-none focus:border-brand-500"
+                      className="mt-0.5 w-full rounded-lg bg-ink-900 border border-white/10 px-2 py-2.5 text-base outline-none focus:border-brand-500"
                     />
                   </label>
                   <label className="block">
@@ -160,7 +160,7 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
                       type="datetime-local"
                       value={seg.end}
                       onChange={(e) => updateSeg(i, { end: e.target.value })}
-                      className="mt-0.5 w-full rounded-lg bg-ink-900 border border-white/10 px-2 py-2 text-sm outline-none focus:border-brand-500"
+                      className="mt-0.5 w-full rounded-lg bg-ink-900 border border-white/10 px-2 py-2.5 text-base outline-none focus:border-brand-500"
                     />
                   </label>
                 </div>

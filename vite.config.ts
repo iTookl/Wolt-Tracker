@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['apple-touch-icon.png', 'favicon-32x32.png'],
+      includeAssets: ['apple-touch-icon.png', 'favicon-32x32.png', 'splash/*.png'],
       manifest: {
         name: 'Wolt Tracker',
         short_name: 'Wolt Tracker',

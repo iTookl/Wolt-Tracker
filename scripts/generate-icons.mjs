@@ -1,5 +1,5 @@
-// Генератор placeholder-иконок PWA (без зависимостей).
-// Рисует брендовый фон + белую «W». Запуск: node scripts/generate-icons.mjs
+// Генератор placeholder-иконок и splash-экранов PWA (без зависимостей).
+// Запуск: node scripts/generate-icons.mjs
 import zlib from 'node:zlib';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -7,9 +7,9 @@ import { dirname, resolve } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC = resolve(__dirname, '..', 'public');
-mkdirSync(PUBLIC, { recursive: true });
+mkdirSync(resolve(PUBLIC, 'splash'), { recursive: true });
 
-// CRC32
+// ---- PNG-кодек ----
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256);
   for (let n = 0; n < 256; n++) {
@@ -37,67 +37,98 @@ function encodePNG(width, height, rgba) {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(width, 0);
   ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8; // bit depth
-  ihdr[9] = 6; // color type RGBA
+  ihdr[8] = 8;
+  ihdr[9] = 6; // RGBA
   const stride = width * 4;
   const raw = Buffer.alloc((stride + 1) * height);
   for (let y = 0; y < height; y++) {
-    raw[y * (stride + 1)] = 0; // filter: none
+    raw[y * (stride + 1)] = 0;
     rgba.copy(raw, y * (stride + 1) + 1, y * stride, y * stride + stride);
   }
   const idat = zlib.deflateSync(raw, { level: 9 });
   return Buffer.concat([sig, chunk('IHDR', ihdr), chunk('IDAT', idat), chunk('IEND', Buffer.alloc(0))]);
 }
 
-// Цвета
+// ---- Рисование ----
 const BG = [10, 15, 26, 255]; // ink-950
 const PANEL = [0, 166, 224, 255]; // brand
 const WHITE = [255, 255, 255, 255];
 
-function drawIcon(size) {
-  const buf = Buffer.alloc(size * size * 4);
+function makeCanvas(W, H, bg) {
+  const buf = Buffer.alloc(W * H * 4);
   const set = (x, y, c) => {
-    if (x < 0 || y < 0 || x >= size || y >= size) return;
-    const i = (y * size + x) * 4;
+    x = Math.round(x);
+    y = Math.round(y);
+    if (x < 0 || y < 0 || x >= W || y >= H) return;
+    const i = (y * W + x) * 4;
     buf[i] = c[0]; buf[i + 1] = c[1]; buf[i + 2] = c[2]; buf[i + 3] = c[3];
   };
-  // фон
-  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) set(x, y, BG);
-  // скруглённая брендовая плашка
-  const pad = Math.round(size * 0.12);
-  const r = Math.round(size * 0.22);
-  for (let y = pad; y < size - pad; y++) {
-    for (let x = pad; x < size - pad; x++) {
-      const dx = Math.max(pad + r - x, x - (size - pad - 1 - r), 0);
-      const dy = Math.max(pad + r - y, y - (size - pad - 1 - r), 0);
+  if (bg) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) set(x, y, bg);
+  return { buf, set };
+}
+
+// Логотип со стороной S в точке (ox, oy)
+function drawLogo(set, S, ox, oy) {
+  const pad = Math.round(S * 0.12);
+  const r = Math.round(S * 0.22);
+  const x0 = ox + pad;
+  const y0 = oy + pad;
+  const x1 = ox + S - pad - 1;
+  const y1 = oy + S - pad - 1;
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const dx = Math.max(x0 + r - x, x - (x1 - r), 0);
+      const dy = Math.max(y0 + r - y, y - (y1 - r), 0);
       if (dx * dx + dy * dy <= r * r) set(x, y, PANEL);
     }
   }
-  // буква W белыми штрихами
-  const th = Math.max(2, Math.round(size * 0.085));
+  const th = Math.max(2, Math.round(S * 0.085));
   const pts = [
     [0.27, 0.34], [0.4, 0.66], [0.5, 0.46], [0.6, 0.66], [0.73, 0.34],
-  ].map(([fx, fy]) => [fx * size, fy * size]);
+  ].map(([fx, fy]) => [ox + fx * S, oy + fy * S]);
   const stamp = (cx, cy) => {
     const h = Math.floor(th / 2);
-    for (let yy = -h; yy <= h; yy++) for (let xx = -h; xx <= h; xx++) set(Math.round(cx + xx), Math.round(cy + yy), WHITE);
+    for (let yy = -h; yy <= h; yy++) for (let xx = -h; xx <= h; xx++) set(cx + xx, cy + yy, WHITE);
   };
   for (let s = 0; s < pts.length - 1; s++) {
-    const [x0, y0] = pts[s];
-    const [x1, y1] = pts[s + 1];
-    const steps = Math.ceil(Math.hypot(x1 - x0, y1 - y0));
-    for (let i = 0; i <= steps; i++) stamp(x0 + ((x1 - x0) * i) / steps, y0 + ((y1 - y0) * i) / steps);
+    const [ax, ay] = pts[s];
+    const [bx, by] = pts[s + 1];
+    const steps = Math.ceil(Math.hypot(bx - ax, by - ay));
+    for (let i = 0; i <= steps; i++) stamp(ax + ((bx - ax) * i) / steps, ay + ((by - ay) * i) / steps);
   }
+}
+
+function makeIcon(size) {
+  const { buf, set } = makeCanvas(size, size, BG);
+  drawLogo(set, size, 0, 0);
   return encodePNG(size, size, buf);
 }
 
-const targets = [
+function makeSplash(W, H) {
+  const { buf, set } = makeCanvas(W, H, BG);
+  const S = Math.round(Math.min(W, H) * 0.34);
+  drawLogo(set, S, (W - S) / 2, (H - S) / 2);
+  return encodePNG(W, H, buf);
+}
+
+// ---- Иконки ----
+for (const [name, size] of [
   ['pwa-192x192.png', 192],
   ['pwa-512x512.png', 512],
   ['apple-touch-icon.png', 180],
   ['favicon-32x32.png', 32],
+]) {
+  writeFileSync(resolve(PUBLIC, name), makeIcon(size));
+  console.log('icon', name);
+}
+
+// ---- Splash-экраны (актуальные iPhone, портрет) ----
+// [ширина_px, высота_px]
+const SPLASHES = [
+  [1290, 2796], [1179, 2556], [1284, 2778], [1170, 2532],
+  [1125, 2436], [1242, 2688], [828, 1792], [750, 1334],
 ];
-for (const [name, size] of targets) {
-  writeFileSync(resolve(PUBLIC, name), drawIcon(size));
-  console.log('written', name, size);
+for (const [w, h] of SPLASHES) {
+  writeFileSync(resolve(PUBLIC, 'splash', `splash-${w}x${h}.png`), makeSplash(w, h));
+  console.log('splash', `${w}x${h}`);
 }

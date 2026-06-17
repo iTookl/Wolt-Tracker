@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from 'react';
 import { TabBar } from './components/layout/TabBar';
 import type { Tab } from './components/layout/TabBar';
+import { IosInstallHint } from './components/IosInstallHint';
 import { HomeScreen } from './screens/HomeScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
 import { SummaryScreen } from './screens/SummaryScreen';
@@ -29,6 +30,7 @@ export default function App() {
           </Suspense>
         )}
       </main>
+      <IosInstallHint />
       <TabBar active={tab} onChange={setTab} />
     </div>
   );

@@ -33,3 +33,17 @@ body {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
 }
+
+/* iOS Safari зумит при фокусе на поле со шрифтом <16px — держим минимум 16px. */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+/* Кнопки/иконки: без длинного-тапа меню и выделения текста (нативное ощущение). */
+button {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
