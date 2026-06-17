@@ -4,6 +4,7 @@ import type { Tab } from './components/layout/TabBar';
 import { HomeScreen } from './screens/HomeScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
 import { SummaryScreen } from './screens/SummaryScreen';
+import { PlanScreen } from './screens/PlanScreen';
 
 // Экран статистики тянет recharts — грузим лениво, только при открытии.
 const StatsScreen = lazy(() =>
@@ -18,6 +19,7 @@ export default function App() {
       <main className="mx-auto max-w-md px-4 pb-28 safe-top">
         {tab === 'home' && <HomeScreen />}
         {tab === 'history' && <HistoryScreen />}
+        {tab === 'plan' && <PlanScreen />}
         {tab === 'summary' && <SummaryScreen />}
         {tab === 'stats' && (
           <Suspense

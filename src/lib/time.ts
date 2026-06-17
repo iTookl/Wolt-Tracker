@@ -123,6 +123,21 @@ export function segmentsActiveMs(segments: WorkSegment[]): number {
   );
 }
 
+/**
+ * Интервал плановой смены из даты ("yyyy-MM-dd") и времени ("HH:mm").
+ * Если конец <= начала — считаем, что смена уходит за полночь (конец на след. день).
+ */
+export function plannedRange(
+  date: string,
+  start: string,
+  end: string
+): { start: Date; end: Date } {
+  const s = new Date(`${date}T${start}`);
+  let e = new Date(`${date}T${end}`);
+  if (e.getTime() <= s.getTime()) e = new Date(e.getTime() + 24 * 3_600_000);
+  return { start: s, end: e };
+}
+
 /** Короткий формат "5ч 23м" для списков. */
 export function formatHm(milliseconds: number): string {
   const totalMin = Math.round(Math.max(0, milliseconds) / 60000);

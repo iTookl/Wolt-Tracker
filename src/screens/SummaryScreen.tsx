@@ -3,6 +3,7 @@ import { useShifts } from '../hooks/useShifts';
 import { activeHours, totalEarnings } from '../lib/time';
 import { formatMoney, formatRate } from '../lib/money';
 import { StatCard } from '../components/ui/Card';
+import { DataSection } from '../components/DataSection';
 import { startOfMonth, startOfWeek } from 'date-fns';
 
 type Period = 'week' | 'month' | 'all';
@@ -79,6 +80,8 @@ export function SummaryScreen() {
           За этот период смен нет.
         </p>
       )}
+
+      <DataSection />
     </div>
   );
 }

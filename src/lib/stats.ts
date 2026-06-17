@@ -21,6 +21,7 @@ export interface StatsResult {
   byWeekday: SlotStat[];
   byTimeOfDay: SlotStat[];
   totalShifts: number; // сколько смён реально учтено (с заработком)
+  overallRate: number | null; // средний ₪/ч по всем сменам
 }
 
 /** Порог, ниже которого слот считаем нестабильным. */
@@ -136,6 +137,13 @@ export function computeStats(shifts: Shift[]): StatsResult {
     }
   }
 
+  let allHours = 0;
+  let allEarnings = 0;
+  for (const a of weekdayAcc.values()) {
+    allHours += a.hours;
+    allEarnings += a.earnings;
+  }
+
   return {
     byWeekday: finalize(
       WEEKDAYS.map((label) => ({ key: label, label })),
@@ -143,5 +151,57 @@ export function computeStats(shifts: Shift[]): StatsResult {
     ),
     byTimeOfDay: finalize(TIME_SLOTS, slotAcc),
     totalShifts,
+    overallRate: allHours > 0 ? allEarnings / allHours : null,
+  };
+}
+
+export interface PlanEstimate {
+  hours: number;
+  earnings: number | null; // грубая оценка; null, если истории нет совсем
+  basedOnSlotData: boolean; // true, если хотя бы часть оценки опёрта на слоты
+}
+
+/**
+ * Грубый ориентир заработка для планируемой смены [start, end].
+ * Делим интервал по слотам и берём средний ₪/ч слота (а где его нет — общий средний).
+ * Это НЕ прогноз, а прикидка «при твоих обычных средних».
+ */
+export function estimatePlannedEarnings(
+  start: Date,
+  end: Date,
+  stats: StatsResult
+): PlanEstimate {
+  const hours = Math.max(0, (end.getTime() - start.getTime()) / 3_600_000);
+  if (hours <= 0) return { hours: 0, earnings: null, basedOnSlotData: false };
+
+  const slotRate = new Map(stats.byTimeOfDay.map((s) => [s.key, s] as const));
+  const buckets = hourBuckets(start, end);
+  const grossTotal = buckets.reduce((x, y) => x + y, 0);
+  if (grossTotal <= 0) return { hours, earnings: null, basedOnSlotData: false };
+
+  let earnings = 0;
+  let haveAny = false;
+  let usedSlot = false;
+  buckets.forEach((min, hour) => {
+    if (min <= 0) return;
+    const slot = HOUR_TO_SLOT.get(hour);
+    const stat = slot ? slotRate.get(slot.key) : undefined;
+    let rate: number | null = null;
+    if (stat && stat.rate != null && stat.shiftCount > 0) {
+      rate = stat.rate;
+      usedSlot = true;
+    } else if (stats.overallRate != null) {
+      rate = stats.overallRate;
+    }
+    if (rate != null) {
+      earnings += (min / 60) * rate;
+      haveAny = true;
+    }
+  });
+
+  return {
+    hours,
+    earnings: haveAny ? earnings : null,
+    basedOnSlotData: usedSlot,
   };
 }
