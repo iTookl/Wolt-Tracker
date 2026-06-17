@@ -27,10 +27,15 @@ function empty(): PersistShape {
 /** Точка для будущих миграций схемы (по data.version). */
 function migrate(data: Partial<PersistShape> | null): PersistShape {
   if (!data) return empty();
-  // На версии 1 миграций нет — просто нормализуем форму.
+  // Нормализуем форму и добавляем поля, появившиеся позже (например tips).
+  const shifts = (Array.isArray(data.shifts) ? data.shifts : []).map((s) => ({
+    ...s,
+    tips: s.tips ?? null,
+    breaks: Array.isArray(s.breaks) ? s.breaks : [],
+  }));
   return {
     version: SCHEMA_VERSION,
-    shifts: Array.isArray(data.shifts) ? data.shifts : [],
+    shifts,
     planned: Array.isArray(data.planned) ? data.planned : [],
   };
 }

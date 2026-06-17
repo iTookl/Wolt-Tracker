@@ -13,7 +13,8 @@ export interface Shift {
   startedAt: ISODate;
   endedAt: ISODate | null;
   breaks: BreakInterval[];
-  earnings: number | null; // ₪, вводится в конце смены
+  earnings: number | null; // ₪ базовый заработок, вводится в конце смены
+  tips: number | null; // ₪ чаевые, можно вписать позже (в Wolt видны не сразу)
   deliveries: number | null; // опционально
   vehicle: Vehicle | null;
   note: string | null;
@@ -30,6 +31,7 @@ export interface PlannedShift {
 /** Данные, которые вводятся при завершении смены. */
 export interface EndShiftInput {
   earnings: number;
+  tips?: number | null;
   deliveries?: number | null;
   vehicle?: Vehicle | null;
   note?: string | null;

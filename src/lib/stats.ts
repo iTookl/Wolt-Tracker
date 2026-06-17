@@ -1,5 +1,5 @@
 import type { Shift } from '../types';
-import { activeHours } from './time';
+import { activeHours, totalEarnings } from './time';
 
 /**
  * Описательная статистика по слотам. Только средние по реальной истории —
@@ -104,7 +104,9 @@ export function computeStats(shifts: Shift[]): StatsResult {
   let totalShifts = 0;
 
   for (const s of shifts) {
-    if (s.status !== 'completed' || s.earnings == null || !s.endedAt) continue;
+    if (s.status !== 'completed' || !s.endedAt) continue;
+    const earned = totalEarnings(s); // базовый + чаевые
+    if (earned == null) continue;
     const aHours = activeHours(s);
     if (aHours <= 0) continue;
     totalShifts += 1;
@@ -113,7 +115,7 @@ export function computeStats(shifts: Shift[]): StatsResult {
     const end = new Date(s.endedAt);
 
     // День недели: смену целиком относим к дню её начала.
-    bump(weekdayAcc, WEEKDAYS[start.getDay()], aHours, s.earnings);
+    bump(weekdayAcc, WEEKDAYS[start.getDay()], aHours, earned);
 
     // Время суток: длинная смена делится между слотами пропорционально
     // календарному времени в каждом часе (а чистые часы и заработок — по той же доле).
@@ -130,7 +132,7 @@ export function computeStats(shifts: Shift[]): StatsResult {
 
     for (const [key, gross] of slotGross) {
       const fraction = gross / grossTotal;
-      bump(slotAcc, key, aHours * fraction, s.earnings * fraction);
+      bump(slotAcc, key, aHours * fraction, earned * fraction);
     }
   }
 

@@ -1,4 +1,4 @@
-import type { BreakInterval, Shift } from '../types';
+import type { BreakInterval, ISODate, Shift } from '../types';
 
 export const MS_PER_HOUR = 3_600_000;
 
@@ -32,12 +32,19 @@ export function activeHours(shift: Shift, now?: number): number {
   return activeMs(shift, now) / MS_PER_HOUR;
 }
 
-/** ₪/час. null, если нет заработка или нулевая длительность. */
+/** Суммарный заработок = базовый + чаевые. null, если нигде ничего не введено. */
+export function totalEarnings(shift: Shift): number | null {
+  if (shift.earnings == null && shift.tips == null) return null;
+  return (shift.earnings ?? 0) + (shift.tips ?? 0);
+}
+
+/** ₪/час по суммарному заработку. null, если нет заработка или нулевая длительность. */
 export function ratePerHour(shift: Shift): number | null {
-  if (shift.earnings == null) return null;
+  const total = totalEarnings(shift);
+  if (total == null) return null;
   const h = activeHours(shift);
   if (h <= 0) return null;
-  return shift.earnings / h;
+  return total / h;
 }
 
 /** Идёт ли пауза прямо сейчас (последний интервал не закрыт). */
@@ -61,6 +68,59 @@ export function formatDuration(milliseconds: number): string {
   const s = totalSec % 60;
   const pad = (n: number) => n.toString().padStart(2, '0');
   return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+/**
+ * Периоды работы — обратная сторона модели start/end/breaks.
+ * Перерыв = промежуток между соседними периодами. Это удобнее для ручного
+ * ввода прошлых смен («работал 8:45–13:00, потом 19:00–21:30»).
+ */
+export interface WorkSegment {
+  start: ISODate;
+  end: ISODate;
+}
+
+/** Разложить смену на периоды работы (между перерывами). */
+export function shiftToSegments(shift: Shift): WorkSegment[] {
+  const segs: WorkSegment[] = [];
+  let cursor = shift.startedAt;
+  const sorted = [...shift.breaks]
+    .filter((b) => b.end != null)
+    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  for (const b of sorted) {
+    segs.push({ start: cursor, end: b.start });
+    cursor = b.end as string;
+  }
+  segs.push({ start: cursor, end: shift.endedAt ?? cursor });
+  return segs;
+}
+
+/** Собрать обратно startedAt/endedAt/breaks из периодов работы. */
+export function segmentsToTimes(segments: WorkSegment[]): {
+  startedAt: ISODate;
+  endedAt: ISODate;
+  breaks: BreakInterval[];
+} {
+  const sorted = [...segments].sort(
+    (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()
+  );
+  const breaks: BreakInterval[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    breaks.push({ start: sorted[i - 1].end, end: sorted[i].start });
+  }
+  return {
+    startedAt: sorted[0].start,
+    endedAt: sorted[sorted.length - 1].end,
+    breaks,
+  };
+}
+
+/** Чистое время по периодам (сумма длительностей). */
+export function segmentsActiveMs(segments: WorkSegment[]): number {
+  return segments.reduce(
+    (sum, s) => sum + Math.max(0, new Date(s.end).getTime() - new Date(s.start).getTime()),
+    0
+  );
 }
 
 /** Короткий формат "5ч 23м" для списков. */

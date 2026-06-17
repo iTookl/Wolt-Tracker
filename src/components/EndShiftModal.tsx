@@ -21,6 +21,7 @@ interface Result {
 
 export function EndShiftModal({ open, shift, onClose, onConfirm }: Props) {
   const [earnings, setEarnings] = useState('');
+  const [tips, setTips] = useState('');
   const [deliveries, setDeliveries] = useState('');
   const [vehicle, setVehicle] = useState<Vehicle | null>(shift.vehicle);
   const [note, setNote] = useState('');
@@ -35,14 +36,17 @@ export function EndShiftModal({ open, shift, onClose, onConfirm }: Props) {
     const earningsNum = Number(earnings.replace(',', '.'));
     if (!Number.isFinite(earningsNum) || earningsNum < 0) return;
 
+    const tipsNum = tips.trim() === '' ? null : Number(tips.replace(',', '.'));
+    const total = earningsNum + (tipsNum ?? 0);
     const hours = frozenMs / MS_PER_HOUR;
-    const rate = hours > 0 ? earningsNum / hours : null;
+    const rate = hours > 0 ? total / hours : null;
 
     const deliveriesNum = deliveries.trim() === '' ? null : Number(deliveries);
 
     onConfirm(
       {
         earnings: earningsNum,
+        tips: Number.isFinite(tipsNum as number) ? tipsNum : null,
         deliveries: Number.isFinite(deliveriesNum as number) ? deliveriesNum : null,
         vehicle,
         note: note.trim() || null,
@@ -50,7 +54,7 @@ export function EndShiftModal({ open, shift, onClose, onConfirm }: Props) {
       endAt
     );
 
-    setResult({ durationMs: frozenMs, earnings: earningsNum, rate });
+    setResult({ durationMs: frozenMs, earnings: total, rate });
   }
 
   const valid = earnings.trim() !== '' && Number(earnings.replace(',', '.')) >= 0;
@@ -104,6 +108,18 @@ export function EndShiftModal({ open, shift, onClose, onConfirm }: Props) {
               onChange={(e) => setEarnings(e.target.value)}
               placeholder="например, 180"
               className="mt-1 w-full rounded-xl bg-ink-800 border border-white/10 px-4 py-3 text-2xl font-semibold tabular outline-none focus:border-brand-500"
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-sm text-slate-300">Чаевые, ₪ (можно добавить позже)</span>
+            <input
+              type="number"
+              inputMode="decimal"
+              value={tips}
+              onChange={(e) => setTips(e.target.value)}
+              placeholder="если уже видны в Wolt"
+              className="mt-1 w-full rounded-xl bg-ink-800 border border-white/10 px-4 py-3 outline-none focus:border-brand-500"
             />
           </label>
 

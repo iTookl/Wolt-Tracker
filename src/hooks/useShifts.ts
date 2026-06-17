@@ -18,9 +18,13 @@ export function useShifts() {
     setShifts((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
   }
 
+  function addShift(shift: Shift) {
+    setShifts((prev) => [...prev, shift]);
+  }
+
   function deleteShift(id: string) {
     setShifts((prev) => prev.filter((s) => s.id !== id));
   }
 
-  return { completed, updateShift, deleteShift };
+  return { completed, updateShift, addShift, deleteShift };
 }

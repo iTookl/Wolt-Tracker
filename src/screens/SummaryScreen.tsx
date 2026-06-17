@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useShifts } from '../hooks/useShifts';
-import { activeHours } from '../lib/time';
+import { activeHours, totalEarnings } from '../lib/time';
 import { formatMoney, formatRate } from '../lib/money';
 import { StatCard } from '../components/ui/Card';
 import { startOfMonth, startOfWeek } from 'date-fns';
@@ -32,10 +32,10 @@ export function SummaryScreen() {
     );
 
     const totalHours = inRange.reduce((sum, s) => sum + activeHours(s), 0);
-    const totalEarnings = inRange.reduce((sum, s) => sum + (s.earnings ?? 0), 0);
-    const avgRate = totalHours > 0 ? totalEarnings / totalHours : null;
+    const earningsSum = inRange.reduce((sum, s) => sum + (totalEarnings(s) ?? 0), 0);
+    const avgRate = totalHours > 0 ? earningsSum / totalHours : null;
 
-    return { count: inRange.length, totalHours, totalEarnings, avgRate };
+    return { count: inRange.length, totalHours, totalEarnings: earningsSum, avgRate };
   }, [completed, period]);
 
   return (
