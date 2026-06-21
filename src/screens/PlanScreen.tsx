@@ -2,186 +2,234 @@ import { useMemo, useState } from 'react';
 import { useShifts } from '../hooks/useShifts';
 import { usePlannedShifts } from '../hooks/usePlannedShifts';
 import { computeStats, estimatePlannedEarnings } from '../lib/stats';
-import { plannedRange } from '../lib/time';
-import { formatMoney } from '../lib/money';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
+import {
+  activeMs,
+  formatHm,
+  plannedRange,
+  ratePerHour,
+  totalEarnings,
+} from '../lib/time';
+import { formatMoney, formatRate } from '../lib/money';
+import { MonthCalendar, dayKey } from '../components/MonthCalendar';
 import { PlannedShiftModal } from '../components/PlannedShiftModal';
-import type { PlannedShift } from '../types';
+import { ShiftDetailModal } from '../components/ShiftDetailModal';
+import { Modal } from '../components/ui/Modal';
+import { Button } from '../components/ui/Button';
+import type { PlannedShift, Shift } from '../types';
 import { newId } from '../lib/id';
-import { addDays, format, isToday, isTomorrow } from 'date-fns';
+import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
-const todayStr = () => format(new Date(), 'yyyy-MM-dd');
-
-function makeDraft(): PlannedShift {
-  return {
-    id: newId(),
-    date: format(addDays(new Date(), 1), 'yyyy-MM-dd'),
-    plannedStart: '18:00',
-    plannedEnd: '23:00',
-    targetEarnings: null,
-  };
-}
-
-function dayHeader(dateStr: string): string {
-  const d = new Date(`${dateStr}T00:00`);
-  if (isToday(d)) return 'Сегодня';
-  if (isTomorrow(d)) return 'Завтра';
-  const s = format(d, 'EEEE, d MMM', { locale: ru });
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
 export function PlanScreen() {
-  const { completed } = useShifts();
+  const { completed, updateShift, deleteShift } = useShifts();
   const { planned, addPlanned, updatePlanned, deletePlanned } = usePlannedShifts();
-  const [selected, setSelected] = useState<PlannedShift | null>(null);
-  const [draft, setDraft] = useState<PlannedShift | null>(null);
+
+  const [monthOffset, setMonthOffset] = useState(0);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [editingPlan, setEditingPlan] = useState<PlannedShift | null>(null);
+  const [draftPlan, setDraftPlan] = useState<PlannedShift | null>(null);
+  const [viewShift, setViewShift] = useState<Shift | null>(null);
+
+  const monthDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + monthOffset);
+    return d;
+  }, [monthOffset]);
 
   const stats = useMemo(() => computeStats(completed), [completed]);
 
-  // Только сегодня и будущее, сгруппировано по дате.
-  const upcoming = useMemo(() => {
-    const t = todayStr();
-    return planned.filter((p) => p.date >= t);
-  }, [planned]);
+  const dayPlans = useMemo(
+    () => (selectedDay ? planned.filter((p) => p.date === selectedDay) : []),
+    [planned, selectedDay]
+  );
+  const dayShifts = useMemo(
+    () =>
+      selectedDay
+        ? completed.filter((s) => dayKey(new Date(s.startedAt)) === selectedDay)
+        : [],
+    [completed, selectedDay]
+  );
+
+  function makeDraftFor(date: string): PlannedShift {
+    return {
+      id: newId(),
+      date,
+      plannedStart: '18:00',
+      plannedEnd: '23:00',
+      targetEarnings: null,
+    };
+  }
 
   const estimateOf = (p: PlannedShift) => {
     const { start, end } = plannedRange(p.date, p.plannedStart, p.plannedEnd);
     return estimatePlannedEarnings(start, end, stats);
   };
 
-  const totals = useMemo(() => {
-    let hours = 0;
-    let est = 0;
-    let target = 0;
-    for (const p of upcoming) {
-      const e = estimateOf(p);
-      hours += e.hours;
-      est += e.earnings ?? 0;
-      target += p.targetEarnings ?? 0;
-    }
-    return { hours, est, target };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [upcoming, stats]);
-
-  const grouped = useMemo(() => {
-    const map = new Map<string, PlannedShift[]>();
-    for (const p of upcoming) {
-      const arr = map.get(p.date) ?? [];
-      arr.push(p);
-      map.set(p.date, arr);
-    }
-    return [...map.entries()];
-  }, [upcoming]);
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Планы</h1>
-        <Button size="md" variant="subtle" onClick={() => setDraft(makeDraft())}>
+        <Button
+          size="md"
+          variant="subtle"
+          onClick={() => setDraftPlan(makeDraftFor(selectedDay ?? dayKey(new Date())))}
+        >
           + План
         </Button>
       </div>
 
-      {upcoming.length > 0 && (
-        <Card className="flex justify-between text-center">
-          <div>
-            <div className="text-xs text-slate-400">Смен</div>
-            <div className="text-lg font-bold tabular">{upcoming.length}</div>
-          </div>
-          <div>
-            <div className="text-xs text-slate-400">Часов</div>
-            <div className="text-lg font-bold tabular">
-              {totals.hours.toLocaleString('he-IL', { maximumFractionDigits: 1 })}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-slate-400">Ориентир</div>
-            <div className="text-lg font-bold text-brand-400 tabular">
-              ≈ {formatMoney(Math.round(totals.est))}
-            </div>
-          </div>
-          {totals.target > 0 && (
-            <div>
-              <div className="text-xs text-slate-400">Цель</div>
-              <div className="text-lg font-bold tabular">{formatMoney(totals.target)}</div>
-            </div>
-          )}
-        </Card>
-      )}
-
-      {upcoming.length === 0 ? (
-        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
-          <div className="text-5xl mb-3">📅</div>
-          <p className="text-slate-400">Нет запланированных смен.</p>
-          <p className="text-slate-500 text-sm mt-1">Добавь план кнопкой «+ План».</p>
+      {/* Навигатор месяца */}
+      <div className="flex items-center justify-between bg-ink-900 rounded-xl border border-white/5 px-2 py-1.5">
+        <button
+          onClick={() => setMonthOffset((o) => o - 1)}
+          className="px-3 py-2 text-slate-300 hover:text-white text-lg"
+        >
+          ‹
+        </button>
+        <div className="font-semibold capitalize">
+          {format(monthDate, 'LLLL yyyy', { locale: ru })}
         </div>
-      ) : (
-        grouped.map(([date, items]) => (
-          <section key={date}>
-            <h2 className="font-semibold text-slate-300 mb-2">{dayHeader(date)}</h2>
-            <div className="space-y-2">
-              {items.map((p) => {
-                const e = estimateOf(p);
-                return (
-                  <button key={p.id} onClick={() => setSelected(p)} className="w-full text-left">
-                    <Card className="flex items-center justify-between active:bg-ink-800 transition-colors">
+        <button
+          onClick={() => setMonthOffset((o) => o + 1)}
+          className="px-3 py-2 text-slate-300 hover:text-white text-lg"
+        >
+          ›
+        </button>
+      </div>
+
+      <MonthCalendar
+        monthDate={monthDate}
+        plans={planned}
+        shifts={completed}
+        selected={selectedDay}
+        onSelectDay={(k) => setSelectedDay(k)}
+      />
+
+      <p className="text-xs text-slate-500">
+        Тапни по дню, чтобы посмотреть смены/планы или добавить план. «Ориентир» по планам —
+        грубая оценка из твоих средних ₪/ч.
+      </p>
+
+      {/* Лист дня */}
+      {selectedDay && (
+        <Modal
+          open={!!selectedDay}
+          onClose={() => setSelectedDay(null)}
+          title={capitalize(format(new Date(`${selectedDay}T00:00`), 'EEEE, d MMMM', { locale: ru }))}
+        >
+          <div className="space-y-4">
+            {/* Фактические смены */}
+            {dayShifts.length > 0 && (
+              <section>
+                <h3 className="text-sm font-semibold text-slate-300 mb-2">Отработано</h3>
+                <div className="space-y-2">
+                  {dayShifts.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => setViewShift(s)}
+                      className="w-full text-left rounded-xl bg-emerald-500/5 border border-emerald-500/20 p-3 flex justify-between items-center"
+                    >
                       <div>
                         <div className="font-semibold tabular">
-                          {p.plannedStart}–{p.plannedEnd}
-                          <span className="text-slate-400 font-normal">
-                            {' · '}
-                            {e.hours.toLocaleString('he-IL', { maximumFractionDigits: 1 })} ч
-                          </span>
+                          {format(new Date(s.startedAt), 'HH:mm')}
+                          {s.endedAt ? `–${format(new Date(s.endedAt), 'HH:mm')}` : ''}
                         </div>
-                        <div className="text-sm text-slate-400 mt-0.5">
-                          {p.targetEarnings != null ? `Цель: ${formatMoney(p.targetEarnings)}` : 'Без цели'}
+                        <div className="text-xs text-slate-400 tabular">
+                          {formatHm(activeMs(s))} · {formatMoney(totalEarnings(s))}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-xs text-slate-400">ориентир</div>
-                        <div className="text-lg font-bold text-brand-400 tabular">
-                          {e.earnings == null ? '—' : `≈ ${formatMoney(Math.round(e.earnings))}`}
-                        </div>
+                      <div className="text-emerald-400 font-bold tabular">
+                        {formatRate(ratePerHour(s))}
                       </div>
-                    </Card>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        ))
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Планы */}
+            <section>
+              <h3 className="text-sm font-semibold text-slate-300 mb-2">Планы</h3>
+              {dayPlans.length === 0 ? (
+                <p className="text-sm text-slate-500">На этот день планов нет.</p>
+              ) : (
+                <div className="space-y-2">
+                  {dayPlans.map((p) => {
+                    const e = estimateOf(p);
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => setEditingPlan(p)}
+                        className="w-full text-left rounded-xl bg-ink-800 border border-brand-500/20 p-3 flex justify-between items-center"
+                      >
+                        <div>
+                          <div className="font-semibold tabular">
+                            {p.plannedStart}–{p.plannedEnd}
+                          </div>
+                          <div className="text-xs text-slate-400">
+                            {p.targetEarnings != null
+                              ? `Цель: ${formatMoney(p.targetEarnings)}`
+                              : 'Без цели'}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[11px] text-slate-400">ориентир</div>
+                          <div className="text-brand-400 font-bold tabular">
+                            {e.earnings == null ? '—' : `≈ ${formatMoney(Math.round(e.earnings))}`}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            <Button full size="lg" onClick={() => setDraftPlan(makeDraftFor(selectedDay))}>
+              + Добавить план на этот день
+            </Button>
+          </div>
+        </Modal>
       )}
 
-      {upcoming.length > 0 && (
-        <p className="text-xs text-slate-500 leading-relaxed">
-          «Ориентир» — грубая прикидка: плановые часы × твой средний ₪/ч по этим слотам. Это не
-          обещание заработка, реальность будет отличаться.
-          {stats.totalShifts < 5 && ' Пока смен мало — цифры очень приблизительные.'}
-        </p>
-      )}
-
-      {selected && (
+      {/* Редактирование плана */}
+      {editingPlan && (
         <PlannedShiftModal
-          open={!!selected}
-          planned={selected}
-          onClose={() => setSelected(null)}
-          onSave={(patch) => updatePlanned(selected.id, patch)}
-          onDelete={() => deletePlanned(selected.id)}
+          open={!!editingPlan}
+          planned={editingPlan}
+          onClose={() => setEditingPlan(null)}
+          onSave={(patch) => updatePlanned(editingPlan.id, patch)}
+          onDelete={() => deletePlanned(editingPlan.id)}
         />
       )}
 
-      {draft && (
+      {/* Новый план */}
+      {draftPlan && (
         <PlannedShiftModal
-          open={!!draft}
-          planned={draft}
+          open={!!draftPlan}
+          planned={draftPlan}
           isNew
-          onClose={() => setDraft(null)}
-          onSave={(patch) => addPlanned({ ...draft, ...patch })}
-          onDelete={() => setDraft(null)}
+          onClose={() => setDraftPlan(null)}
+          onSave={(patch) => addPlanned({ ...draftPlan, ...patch })}
+          onDelete={() => setDraftPlan(null)}
+        />
+      )}
+
+      {/* Просмотр фактической смены */}
+      {viewShift && (
+        <ShiftDetailModal
+          open={!!viewShift}
+          shift={viewShift}
+          onClose={() => setViewShift(null)}
+          onSave={(patch) => updateShift(viewShift.id, patch)}
+          onDelete={() => deleteShift(viewShift.id)}
         />
       )}
     </div>
   );
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

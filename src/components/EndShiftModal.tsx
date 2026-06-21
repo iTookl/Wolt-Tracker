@@ -20,11 +20,13 @@ interface Result {
 }
 
 export function EndShiftModal({ open, shift, onClose, onConfirm }: Props) {
-  const [earnings, setEarnings] = useState('');
-  const [tips, setTips] = useState('');
-  const [deliveries, setDeliveries] = useState('');
+  // Предзаполняем уже введёнными значениями (важно, когда смена продолжена
+  // вторым периодом за день — заработок первого периода не теряется).
+  const [earnings, setEarnings] = useState(shift.earnings?.toString() ?? '');
+  const [tips, setTips] = useState(shift.tips?.toString() ?? '');
+  const [deliveries, setDeliveries] = useState(shift.deliveries?.toString() ?? '');
   const [vehicle, setVehicle] = useState<Vehicle | null>(shift.vehicle);
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState(shift.note ?? '');
   const [result, setResult] = useState<Result | null>(null);
 
   // Момент окончания фиксируется один раз — когда открылась модалка

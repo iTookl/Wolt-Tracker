@@ -14,10 +14,45 @@ export function useActiveShift() {
 
   function startShift(vehicle: Vehicle | null = null) {
     if (active) return;
+    const now = new Date();
+    const nowIso = now.toISOString();
+
+    // Если сегодня уже была завершённая смена — продолжаем её новым периодом,
+    // а промежуток между концом прошлой и текущим стартом становится перерывом.
+    const sameDay = (iso: string) => {
+      const d = new Date(iso);
+      return (
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate()
+      );
+    };
+    const todayLast = shifts
+      .filter((s) => s.status === 'completed' && s.endedAt && sameDay(s.startedAt))
+      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())[0];
+
+    if (todayLast) {
+      setShifts((prev) =>
+        prev.map((s) =>
+          s.id === todayLast.id
+            ? {
+                ...s,
+                status: 'active',
+                endedAt: null,
+                // закрытый перерыв = промежуток с конца прошлого периода до сейчас
+                breaks: [...s.breaks, { start: todayLast.endedAt as string, end: nowIso }],
+                vehicle: vehicle ?? s.vehicle,
+              }
+            : s
+        )
+      );
+      return;
+    }
+
     const shift: Shift = {
       id: newId(),
       status: 'active',
-      startedAt: new Date().toISOString(), // абсолютный timestamp начала
+      startedAt: nowIso, // абсолютный timestamp начала
       endedAt: null,
       breaks: [],
       earnings: null,

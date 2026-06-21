@@ -1,4 +1,4 @@
-// Генератор placeholder-иконок и splash-экранов PWA (без зависимостей).
+// Генератор иконок и splash-экранов PWA (без зависимостей).
 // Запуск: node scripts/generate-icons.mjs
 import zlib from 'node:zlib';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -49,12 +49,13 @@ function encodePNG(width, height, rgba) {
   return Buffer.concat([sig, chunk('IHDR', ihdr), chunk('IDAT', idat), chunk('IEND', Buffer.alloc(0))]);
 }
 
-// ---- Рисование ----
-const BG = [10, 15, 26, 255]; // ink-950
-const PANEL = [0, 166, 224, 255]; // brand
+// ---- Палитра ----
+const BG_DARK = [10, 15, 26, 255]; // ink-950 (splash)
+const G_FROM = [34, 184, 240]; // brand-400 (светлый)
+const G_TO = [0, 110, 168]; // тёмно-голубой
 const WHITE = [255, 255, 255, 255];
 
-function makeCanvas(W, H, bg) {
+function makeCanvas(W, H) {
   const buf = Buffer.alloc(W * H * 4);
   const set = (x, y, c) => {
     x = Math.round(x);
@@ -63,32 +64,34 @@ function makeCanvas(W, H, bg) {
     const i = (y * W + x) * 4;
     buf[i] = c[0]; buf[i + 1] = c[1]; buf[i + 2] = c[2]; buf[i + 3] = c[3];
   };
-  if (bg) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) set(x, y, bg);
   return { buf, set };
 }
 
-// Логотип со стороной S в точке (ox, oy)
-function drawLogo(set, S, ox, oy) {
-  const pad = Math.round(S * 0.12);
-  const r = Math.round(S * 0.22);
-  const x0 = ox + pad;
-  const y0 = oy + pad;
-  const x1 = ox + S - pad - 1;
-  const y1 = oy + S - pad - 1;
-  for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      const dx = Math.max(x0 + r - x, x - (x1 - r), 0);
-      const dy = Math.max(y0 + r - y, y - (y1 - r), 0);
-      if (dx * dx + dy * dy <= r * r) set(x, y, PANEL);
+// Диагональный градиент во весь квадрат
+function fillGradient(buf, S) {
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const t = (x + y) / (2 * (S - 1)); // 0..1 по диагонали
+      const i = (y * S + x) * 4;
+      buf[i] = Math.round(G_FROM[0] + (G_TO[0] - G_FROM[0]) * t);
+      buf[i + 1] = Math.round(G_FROM[1] + (G_TO[1] - G_FROM[1]) * t);
+      buf[i + 2] = Math.round(G_FROM[2] + (G_TO[2] - G_FROM[2]) * t);
+      buf[i + 3] = 255;
     }
   }
-  const th = Math.max(2, Math.round(S * 0.085));
+}
+
+// Белая «W» со стороной S в точке (ox, oy); thFrac — толщина штриха
+function drawW(set, S, ox, oy, color, thFrac = 0.1) {
+  const th = Math.max(2, Math.round(S * thFrac));
   const pts = [
-    [0.27, 0.34], [0.4, 0.66], [0.5, 0.46], [0.6, 0.66], [0.73, 0.34],
+    [0.2, 0.3], [0.37, 0.72], [0.5, 0.45], [0.63, 0.72], [0.8, 0.3],
   ].map(([fx, fy]) => [ox + fx * S, oy + fy * S]);
   const stamp = (cx, cy) => {
     const h = Math.floor(th / 2);
-    for (let yy = -h; yy <= h; yy++) for (let xx = -h; xx <= h; xx++) set(cx + xx, cy + yy, WHITE);
+    for (let yy = -h; yy <= h; yy++)
+      for (let xx = -h; xx <= h; xx++)
+        if (xx * xx + yy * yy <= h * h + 1) set(cx + xx, cy + yy, color);
   };
   for (let s = 0; s < pts.length - 1; s++) {
     const [ax, ay] = pts[s];
@@ -98,20 +101,45 @@ function drawLogo(set, S, ox, oy) {
   }
 }
 
+// Иконка приложения: градиент во весь квадрат + белая «W» (iOS сам скруглит углы)
 function makeIcon(size) {
-  const { buf, set } = makeCanvas(size, size, BG);
-  drawLogo(set, size, 0, 0);
+  const { buf, set } = makeCanvas(size, size);
+  fillGradient(buf, size);
+  drawW(set, size, 0, 0, WHITE, 0.105);
   return encodePNG(size, size, buf);
 }
 
+// Splash: тёмный фон + по центру маленькая иконка-плашка с градиентом
 function makeSplash(W, H) {
-  const { buf, set } = makeCanvas(W, H, BG);
-  const S = Math.round(Math.min(W, H) * 0.34);
-  drawLogo(set, S, (W - S) / 2, (H - S) / 2);
+  const { buf, set } = makeCanvas(W, H);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      buf[i] = BG_DARK[0]; buf[i + 1] = BG_DARK[1]; buf[i + 2] = BG_DARK[2]; buf[i + 3] = 255;
+    }
+  const S = Math.round(Math.min(W, H) * 0.3);
+  const ox = (W - S) / 2;
+  const oy = (H - S) / 2;
+  // скруглённая градиентная плашка
+  const r = Math.round(S * 0.24);
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const dx = Math.max(r - x, x - (S - 1 - r), 0);
+      const dy = Math.max(r - y, y - (S - 1 - r), 0);
+      if (dx * dx + dy * dy > r * r) continue;
+      const t = (x + y) / (2 * (S - 1));
+      set(ox + x, oy + y, [
+        Math.round(G_FROM[0] + (G_TO[0] - G_FROM[0]) * t),
+        Math.round(G_FROM[1] + (G_TO[1] - G_FROM[1]) * t),
+        Math.round(G_FROM[2] + (G_TO[2] - G_FROM[2]) * t),
+        255,
+      ]);
+    }
+  }
+  drawW(set, S, ox, oy, WHITE, 0.105);
   return encodePNG(W, H, buf);
 }
 
-// ---- Иконки ----
 for (const [name, size] of [
   ['pwa-192x192.png', 192],
   ['pwa-512x512.png', 512],
@@ -122,8 +150,6 @@ for (const [name, size] of [
   console.log('icon', name);
 }
 
-// ---- Splash-экраны (актуальные iPhone, портрет) ----
-// [ширина_px, высота_px]
 const SPLASHES = [
   [1290, 2796], [1179, 2556], [1284, 2778], [1170, 2532],
   [1125, 2436], [1242, 2688], [828, 1792], [750, 1334],
