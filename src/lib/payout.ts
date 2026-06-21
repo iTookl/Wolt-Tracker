@@ -37,11 +37,16 @@ export function isInPayWeek(iso: string, week: PayWeek): boolean {
   return t >= week.start.getTime() && t <= week.end.getTime();
 }
 
-/** "16–22 июня" (компактный заголовок недели). */
+/**
+ * Заголовок недели по границам понедельник→понедельник, как считает Wolt:
+ * "15–22 июн." (конец = следующий понедельник, день, когда видно сумму).
+ * Сами смены при этом считаются за Пн–Вс — Пн 22 уже относится к неделе «22–29».
+ */
 export function payWeekLabel(week: PayWeek): string {
-  const sameMonth = week.start.getMonth() === week.end.getMonth();
+  const labelEnd = addDays(week.start, 7); // следующий понедельник
+  const sameMonth = week.start.getMonth() === labelEnd.getMonth();
   if (sameMonth) {
-    return `${format(week.start, 'd')}–${format(week.end, 'd MMM', { locale: ru })}`;
+    return `${format(week.start, 'd')}–${format(labelEnd, 'd MMM', { locale: ru })}`;
   }
-  return `${format(week.start, 'd MMM', { locale: ru })} – ${format(week.end, 'd MMM', { locale: ru })}`;
+  return `${format(week.start, 'd MMM', { locale: ru })} – ${format(labelEnd, 'd MMM', { locale: ru })}`;
 }
