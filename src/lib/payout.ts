@@ -2,29 +2,43 @@ import {
   addDays,
   endOfDay,
   format,
-  nextTuesday,
+  isMonday,
+  nextMonday,
   startOfDay,
-  startOfWeek,
+  subDays,
 } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
 /**
- * Расчётная неделя Wolt: понедельник–воскресенье (7 дней).
- * Деньги приходят во вторник после закрытия недели; сумму видно с понедельника.
- * Пример: Пн 15.6 → Вс 21.6 ⇒ видно Пн 22.6 ⇒ 💰 Вт 23.6.
+ * Расчётный период выплаты Wolt.
+ *
+ * Деньги приходят каждый ВТОРНИК. Одна выплата покрывает смены со вторника
+ * по следующий ПОНЕДЕЛЬНИК включительно — т.е. интервал (понедельник, понедельник].
+ * Пользователь называет период по краям-понедельникам: «8–15», «15–22».
+ *
+ * Пример (подтверждено реальными выплатами):
+ *   смены 8–15 июня (вкл. Пн 15) ⇒ 💰 Вт 16.6
+ *   смены 15–22 июня (вкл. Пн 22) ⇒ 💰 Вт 23.6
  */
 
 export interface PayWeek {
-  start: Date; // понедельник 00:00
-  end: Date; // воскресенье 23:59:59
-  paidOn: Date; // вторник после закрытия недели
+  start: Date; // вторник 00:00 (включительно) — для фильтрации смен
+  end: Date; // понедельник 23:59:59 (включительно)
+  paidOn: Date; // вторник — день прихода денег
 }
 
-/** Расчётная неделя, в которую попадает дата `d`. */
+/** Понедельник, которым закрывается период, содержащий дату `d` (включительно). */
+function closingMonday(d: Date): Date {
+  const day = startOfDay(d);
+  return isMonday(day) ? day : nextMonday(day);
+}
+
+/** Расчётный период, в который попадает дата `d`. */
 export function payWeekOf(d: Date): PayWeek {
-  const start = startOfWeek(d, { weekStartsOn: 1 }); // Пн
-  const end = endOfDay(addDays(start, 6)); // Вс
-  const paidOn = startOfDay(nextTuesday(end)); // ближайший Вт после Вс
+  const endMon = closingMonday(d);
+  const start = startOfDay(subDays(endMon, 6)); // вторник = понедельник − 6 дней
+  const end = endOfDay(endMon);
+  const paidOn = startOfDay(addDays(endMon, 1)); // вторник после закрытия
   return { start, end, paidOn };
 }
 
@@ -38,15 +52,15 @@ export function isInPayWeek(iso: string, week: PayWeek): boolean {
 }
 
 /**
- * Заголовок недели по границам понедельник→понедельник, как считает Wolt:
- * "15–22 июн." (конец = следующий понедельник, день, когда видно сумму).
- * Сами смены при этом считаются за Пн–Вс — Пн 22 уже относится к неделе «22–29».
+ * Заголовок периода по краям-понедельникам, как считает Wolt: "8–15 июн.".
+ * Конец = закрывающий понедельник (день, когда видно сумму), начало = он минус 7 дней.
  */
 export function payWeekLabel(week: PayWeek): string {
-  const labelEnd = addDays(week.start, 7); // следующий понедельник
-  const sameMonth = week.start.getMonth() === labelEnd.getMonth();
+  const endMon = startOfDay(week.end);
+  const startMon = subDays(endMon, 7);
+  const sameMonth = startMon.getMonth() === endMon.getMonth();
   if (sameMonth) {
-    return `${format(week.start, 'd')}–${format(labelEnd, 'd MMM', { locale: ru })}`;
+    return `${format(startMon, 'd')}–${format(endMon, 'd MMM', { locale: ru })}`;
   }
-  return `${format(week.start, 'd MMM', { locale: ru })} – ${format(labelEnd, 'd MMM', { locale: ru })}`;
+  return `${format(startMon, 'd MMM', { locale: ru })} – ${format(endMon, 'd MMM', { locale: ru })}`;
 }
