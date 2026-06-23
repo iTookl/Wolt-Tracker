@@ -5,7 +5,7 @@ import { Button } from './ui/Button';
 import { buildCsv, buildJson, downloadFile, parseImport, todayStamp } from '../lib/dataPort';
 
 export function DataSection() {
-  const { shifts, planned, setShifts, setPlanned } = useAppState();
+  const { shifts, planned, goals, setShifts, setPlanned, setGoals } = useAppState();
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -15,7 +15,7 @@ export function DataSection() {
     downloadFile(
       `wolt-tracker-${todayStamp()}.json`,
       'application/json',
-      buildJson(shifts, planned)
+      buildJson(shifts, planned, goals)
     );
   }
 
@@ -38,6 +38,7 @@ export function DataSection() {
         if (!ok) return;
         setShifts(() => parsed.shifts);
         setPlanned(() => parsed.planned);
+        setGoals(() => parsed.goals);
         setMsg(`✅ Импортировано: ${parsed.shifts.length} смен.`);
       } catch (err) {
         setMsg(`⚠️ ${(err as Error).message}`);

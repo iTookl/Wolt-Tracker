@@ -28,6 +28,12 @@ export interface PlannedShift {
   targetEarnings: number | null;
 }
 
+/** Цели по заработку. Считаются по базе (без чаевых). */
+export interface Goals {
+  monthlyTarget: number | null; // ₪ за календарный месяц
+  weeklyTarget: number | null; // ₪ за расчётную неделю Wolt (Вт→Пн)
+}
+
 /** Данные, которые вводятся при завершении смены. */
 export interface EndShiftInput {
   earnings: number;

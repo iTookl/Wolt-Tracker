@@ -1,8 +1,8 @@
-import type { PlannedShift, Shift } from '../types';
+import type { Goals, PlannedShift, Shift } from '../types';
 import { activeHours, breaksMs, ratePerHour, totalEarnings } from './time';
 import { format } from 'date-fns';
 
-const EXPORT_VERSION = 1;
+const EXPORT_VERSION = 2;
 
 export interface ExportBundle {
   app: 'wolt-tracker';
@@ -10,15 +10,17 @@ export interface ExportBundle {
   exportedAt: string;
   shifts: Shift[];
   planned: PlannedShift[];
+  goals?: Goals;
 }
 
-export function buildJson(shifts: Shift[], planned: PlannedShift[]): string {
+export function buildJson(shifts: Shift[], planned: PlannedShift[], goals: Goals): string {
   const bundle: ExportBundle = {
     app: 'wolt-tracker',
     version: EXPORT_VERSION,
     exportedAt: new Date().toISOString(),
     shifts,
     planned,
+    goals,
   };
   return JSON.stringify(bundle, null, 2);
 }
@@ -78,6 +80,7 @@ export function buildCsv(shifts: Shift[]): string {
 export interface ParsedImport {
   shifts: Shift[];
   planned: PlannedShift[];
+  goals: Goals;
 }
 
 /** Разбор и валидация импортируемого JSON. Бросает ошибку при неверном формате. */
@@ -116,7 +119,11 @@ export function parseImport(text: string): ParsedImport {
         targetEarnings: p.targetEarnings ?? null,
       }))
     : [];
-  return { shifts, planned };
+  const goals: Goals = {
+    monthlyTarget: obj.goals?.monthlyTarget ?? null,
+    weeklyTarget: obj.goals?.weeklyTarget ?? null,
+  };
+  return { shifts, planned, goals };
 }
 
 export function downloadFile(filename: string, mime: string, content: string): void {

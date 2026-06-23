@@ -1,4 +1,4 @@
-export type Tab = 'home' | 'history' | 'summary' | 'stats' | 'plan';
+export type Tab = 'home' | 'history' | 'summary' | 'stats' | 'plan' | 'goal';
 
 interface Props {
   active: Tab;
@@ -9,6 +9,7 @@ const items: { id: Tab; label: string; icon: string }[] = [
   { id: 'home', label: 'Смена', icon: '⏱' },
   { id: 'history', label: 'История', icon: '📋' },
   { id: 'plan', label: 'Планы', icon: '📅' },
+  { id: 'goal', label: 'Цель', icon: '🎯' },
   { id: 'summary', label: 'Сводка', icon: '📊' },
   { id: 'stats', label: 'Слоты', icon: '📈' },
 ];
@@ -16,7 +17,7 @@ const items: { id: Tab; label: string; icon: string }[] = [
 export function TabBar({ active, onChange }: Props) {
   return (
     <nav className="fixed bottom-0 inset-x-0 z-30 bg-ink-900/95 backdrop-blur border-t border-white/10 safe-bottom">
-      <div className="mx-auto max-w-md grid grid-cols-5">
+      <div className="mx-auto max-w-md grid grid-cols-6">
         {items.map((it) => {
           const on = it.id === active;
           return (

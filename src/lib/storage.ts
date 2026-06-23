@@ -1,4 +1,4 @@
-import type { PlannedShift, Shift } from '../types';
+import type { Goals, PlannedShift, Shift } from '../types';
 
 /**
  * Изолированный слой хранения (репозиторий).
@@ -7,21 +7,33 @@ import type { PlannedShift, Shift } from '../types';
  */
 
 const KEY = 'wolt-tracker:db';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 interface PersistShape {
   version: number;
   shifts: Shift[];
   planned: PlannedShift[];
+  goals: Goals;
 }
 
 export interface DbSnapshot {
   shifts: Shift[];
   planned: PlannedShift[];
+  goals: Goals;
 }
 
+const emptyGoals = (): Goals => ({ monthlyTarget: null, weeklyTarget: null });
+
 function empty(): PersistShape {
-  return { version: SCHEMA_VERSION, shifts: [], planned: [] };
+  return { version: SCHEMA_VERSION, shifts: [], planned: [], goals: emptyGoals() };
+}
+
+/** Нормализует цели из произвольных данных (v1 их не имел). */
+function normalizeGoals(g: Partial<Goals> | null | undefined): Goals {
+  return {
+    monthlyTarget: g?.monthlyTarget ?? null,
+    weeklyTarget: g?.weeklyTarget ?? null,
+  };
 }
 
 /** Точка для будущих миграций схемы (по data.version). */
@@ -37,6 +49,7 @@ function migrate(data: Partial<PersistShape> | null): PersistShape {
     version: SCHEMA_VERSION,
     shifts,
     planned: Array.isArray(data.planned) ? data.planned : [],
+    goals: normalizeGoals(data.goals), // v1 → v2: цели появились здесь
   };
 }
 
@@ -64,7 +77,7 @@ function write(data: PersistShape): void {
 export const storage = {
   load(): DbSnapshot {
     const d = read();
-    return { shifts: d.shifts, planned: d.planned };
+    return { shifts: d.shifts, planned: d.planned, goals: d.goals };
   },
 
   save(snapshot: DbSnapshot): void {

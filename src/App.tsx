@@ -7,6 +7,7 @@ import { HomeScreen } from './screens/HomeScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
 import { SummaryScreen } from './screens/SummaryScreen';
 import { PlanScreen } from './screens/PlanScreen';
+import { GoalScreen } from './screens/GoalScreen';
 
 // Экран статистики тянет recharts — грузим лениво, только при открытии.
 const StatsScreen = lazy(() =>
@@ -38,6 +39,7 @@ export default function App() {
         {tab === 'home' && <HomeScreen />}
         {tab === 'history' && <HistoryScreen />}
         {tab === 'plan' && <PlanScreen />}
+        {tab === 'goal' && <GoalScreen />}
         {tab === 'summary' && <SummaryScreen />}
         {tab === 'stats' && (
           <Suspense
