@@ -12,7 +12,8 @@ import {
 } from 'date-fns';
 import { payWeekOf } from '../lib/payout';
 
-const WEEK_DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+// Неделя начинается с воскресенья (Израиль).
+const WEEK_DAYS = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
 const dayKey = (d: Date) => format(d, 'yyyy-MM-dd');
 
@@ -26,8 +27,8 @@ interface Props {
 
 export function MonthCalendar({ monthDate, plans, shifts, selected, onSelectDay }: Props) {
   const days = useMemo(() => {
-    const start = startOfWeek(startOfMonth(monthDate), { weekStartsOn: 1 });
-    const end = endOfWeek(endOfMonth(monthDate), { weekStartsOn: 1 });
+    const start = startOfWeek(startOfMonth(monthDate), { weekStartsOn: 0 });
+    const end = endOfWeek(endOfMonth(monthDate), { weekStartsOn: 0 });
     return eachDayOfInterval({ start, end });
   }, [monthDate]);
 
