@@ -9,7 +9,7 @@ import { formatMoney, formatRate } from '../lib/money';
 import { payWeekLabel, payWeekOf } from '../lib/payout';
 import {
   buildGoalPlan,
-  currentPeriod,
+  periodByOffset,
   overallBaseRate,
   weekdayStats,
   MAX_HOURS_PER_DAY,
@@ -25,10 +25,11 @@ export function GoalScreen() {
   const { completed } = useShifts();
   const { goals, setGoals } = useAppState();
   const [kind, setKind] = useState<GoalPeriodKind>('month');
+  const [offset, setOffset] = useState(0); // 0 = текущий период, +1 = следующий
 
   const target = kind === 'month' ? goals.monthlyTarget : goals.weeklyTarget;
 
-  const period = useMemo(() => currentPeriod(kind), [kind]);
+  const period = useMemo(() => periodByOffset(kind, offset), [kind, offset]);
   const wstats = useMemo(() => weekdayStats(completed), [completed]);
   const overall = useMemo(() => overallBaseRate(completed), [completed]);
   const plan = useMemo(
@@ -39,7 +40,13 @@ export function GoalScreen() {
   const periodLabel =
     kind === 'month'
       ? format(period.start, 'LLLL yyyy', { locale: ru })
-      : payWeekLabel(payWeekOf(new Date()));
+      : payWeekLabel(payWeekOf(period.start));
+  const notStarted = period.start.getTime() > Date.now();
+
+  function switchKind(k: GoalPeriodKind) {
+    setKind(k);
+    setOffset(0);
+  }
 
   function saveTarget(value: number | null) {
     setGoals((g) =>
@@ -55,7 +62,7 @@ export function GoalScreen() {
         {tabs.map((t) => (
           <button
             key={t.id}
-            onClick={() => setKind(t.id)}
+            onClick={() => switchKind(t.id)}
             className={[
               'min-h-[44px] rounded-xl text-sm font-medium transition-colors',
               t.id === kind
@@ -68,7 +75,40 @@ export function GoalScreen() {
         ))}
       </div>
 
-      <div className="text-sm text-slate-400 capitalize">{periodLabel}</div>
+      <div className="flex items-center justify-between bg-ink-900 rounded-xl border border-white/5 px-2 py-1.5">
+        <button
+          onClick={() => setOffset((o) => o - 1)}
+          className="px-3 py-2 text-slate-300 hover:text-white text-lg"
+          aria-label="Предыдущий период"
+        >
+          ‹
+        </button>
+        <div className="text-center">
+          <div className="font-semibold capitalize">{periodLabel}</div>
+          {offset !== 0 && (
+            <button
+              onClick={() => setOffset(0)}
+              className="text-xs text-brand-400 hover:text-brand-300"
+            >
+              ↺ к текущему
+            </button>
+          )}
+        </div>
+        <button
+          onClick={() => setOffset((o) => o + 1)}
+          className="px-3 py-2 text-slate-300 hover:text-white text-lg"
+          aria-label="Следующий период"
+        >
+          ›
+        </button>
+      </div>
+
+      {notStarted && (
+        <p className="text-xs text-slate-500">
+          📅 Предварительный план — период ещё не начался. Заработок копится с нуля, график
+          построен на все дни периода.
+        </p>
+      )}
 
       <TargetCard
         key={kind}
@@ -95,10 +135,14 @@ export function GoalScreen() {
             </Card>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-3">
-                <StatCard label="Осталось" value={formatMoney(plan.remaining)} accent />
-                <PaceCard paceDelta={plan.paceDelta} />
-              </div>
+              {notStarted ? (
+                <StatCard label="Нужно за период" value={formatMoney(plan.remaining)} accent />
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <StatCard label="Осталось" value={formatMoney(plan.remaining)} accent />
+                  <PaceCard paceDelta={plan.paceDelta} />
+                </div>
+              )}
 
               {!plan.hasHistory ? (
                 <Card className="border-amber-500/30 bg-amber-500/5 text-sm text-amber-200">

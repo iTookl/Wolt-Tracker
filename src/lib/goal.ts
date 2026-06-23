@@ -1,5 +1,6 @@
 import {
   addDays,
+  addMonths,
   differenceInCalendarDays,
   endOfMonth,
   startOfDay,
@@ -7,7 +8,7 @@ import {
 } from 'date-fns';
 import type { Shift } from '../types';
 import { activeHours } from './time';
-import { payWeekOf } from './payout';
+import { payWeekOf, shiftPayWeek } from './payout';
 
 /**
  * Логика целей по заработку и авто-планировщик графика.
@@ -109,13 +110,27 @@ export interface GoalPeriod {
   end: Date;
 }
 
-/** Текущий период цели. Месяц — календарный; неделя — расчётный период Wolt (Вт→Пн). */
-export function currentPeriod(kind: GoalPeriodKind, now: Date = new Date()): GoalPeriod {
+/**
+ * Период цели со сдвигом (0 = текущий, +1 = следующий и т.д.).
+ * Месяц — календарный; неделя — расчётный период Wolt (Вт→Пн).
+ * Положительный сдвиг позволяет заранее построить план на будущий месяц/неделю.
+ */
+export function periodByOffset(
+  kind: GoalPeriodKind,
+  offset: number,
+  now: Date = new Date()
+): GoalPeriod {
   if (kind === 'month') {
-    return { kind, start: startOfMonth(now), end: endOfMonth(now) };
+    const m = addMonths(now, offset);
+    return { kind, start: startOfMonth(m), end: endOfMonth(m) };
   }
-  const w = payWeekOf(now);
+  const w = shiftPayWeek(payWeekOf(now), offset);
   return { kind, start: w.start, end: w.end };
+}
+
+/** Текущий период цели (сдвиг 0). */
+export function currentPeriod(kind: GoalPeriodKind, now: Date = new Date()): GoalPeriod {
+  return periodByOffset(kind, 0, now);
 }
 
 /** Сумма базы по смутам, попавшим в период. */
