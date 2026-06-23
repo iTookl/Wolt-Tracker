@@ -278,8 +278,9 @@ function ScheduleSection({ plan }: { plan: ReturnType<typeof buildGoalPlan> }) {
         </span>
       </div>
       <p className="text-xs text-slate-500">
-        Сильные дни первыми, по {MAX_HOURS_PER_DAY} ч. Прогноз ~
-        {formatMoney(plan.projectedEarnings)} к концу периода.
+        Сильные дни первыми, по {MAX_HOURS_PER_DAY} ч активной работы за день — это
+        суммарно, можно дробить (напр. ~4 днём + ~4 вечером, подзарядка и перерыв в счёт
+        не идут). Прогноз ~{formatMoney(plan.projectedEarnings)} к концу периода.
       </p>
       <div className="space-y-2">
         {plan.days.map((d) => (
