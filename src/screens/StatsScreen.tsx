@@ -28,13 +28,10 @@ export function StatsScreen() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold">Слоты</h1>
-        <p className="text-slate-400 text-sm mt-0.5">
-          Средние по твоей истории · {stats.totalShifts}{' '}
-          {stats.totalShifts === 1 ? 'смена' : 'смен'}
-        </p>
-      </div>
+      <p className="text-slate-400 text-sm">
+        Средние по твоей истории · {stats.totalShifts}{' '}
+        {stats.totalShifts === 1 ? 'смена' : 'смен'}
+      </p>
 
       {stats.totalShifts < 5 && (
         <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-sm px-4 py-3">

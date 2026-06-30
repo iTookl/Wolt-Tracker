@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useShifts } from '../hooks/useShifts';
 import { usePlannedShifts } from '../hooks/usePlannedShifts';
+import { useAppState } from '../state/AppState';
 import { computeStats, estimatePlannedEarnings } from '../lib/stats';
+import { earnedBaseInPeriod, periodByOffset } from '../lib/goal';
 import {
   activeMs,
   formatHm,
@@ -13,6 +15,7 @@ import { formatMoney, formatRate } from '../lib/money';
 import { MonthCalendar, dayKey } from '../components/MonthCalendar';
 import { PlannedShiftModal } from '../components/PlannedShiftModal';
 import { ShiftDetailModal } from '../components/ShiftDetailModal';
+import { GoalPanel } from './GoalScreen';
 import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import type { PlannedShift, Shift } from '../types';
@@ -24,6 +27,7 @@ export function PlanScreen() {
   const { completed, updateShift, deleteShift } = useShifts();
   const { planned, addPlanned, updatePlanned, deletePlanned } = usePlannedShifts();
 
+  const [goalOpen, setGoalOpen] = useState(false);
   const [monthOffset, setMonthOffset] = useState(0);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [editingPlan, setEditingPlan] = useState<PlannedShift | null>(null);
@@ -69,7 +73,7 @@ export function PlanScreen() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Планы</h1>
+        <h1 className="text-2xl font-bold">План</h1>
         <Button
           size="md"
           variant="subtle"
@@ -78,6 +82,10 @@ export function PlanScreen() {
           + План
         </Button>
       </div>
+
+      {/* Плашка цели на текущий месяц — тап раскрывает полную панель */}
+      <GoalBanner open={goalOpen} onToggle={() => setGoalOpen((o) => !o)} />
+      {goalOpen && <GoalPanel />}
 
       {/* Навигатор месяца */}
       <div className="flex items-center justify-between bg-ink-900 rounded-xl border border-white/5 px-2 py-1.5">
@@ -227,6 +235,59 @@ export function PlanScreen() {
         />
       )}
     </div>
+  );
+}
+
+/** Компактная плашка месячной цели; тап раскрывает полную панель «Цель». */
+function GoalBanner({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const { completed } = useShifts();
+  const { goals } = useAppState();
+
+  const period = useMemo(() => periodByOffset('month', 0), []);
+  const earned = useMemo(
+    () => earnedBaseInPeriod(completed, period),
+    [completed, period]
+  );
+  const target = goals.monthlyTarget;
+  const monthLabel = format(period.start, 'LLLL', { locale: ru });
+  const progress = target != null && target > 0 ? Math.min(1, earned / target) : 0;
+  const reached = target != null && earned >= target;
+
+  return (
+    <button
+      onClick={onToggle}
+      className="w-full text-left rounded-2xl bg-ink-900 border border-white/5 p-4"
+    >
+      {target == null ? (
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-slate-300">🎯 Поставить цель на месяц</span>
+          <span className="text-slate-400 text-sm">{open ? '▴ свернуть' : '▾'}</span>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <span className="text-xs uppercase tracking-wide text-slate-400">
+              🎯 Цель · <span className="capitalize">{monthLabel}</span>
+            </span>
+            <span className="text-slate-400 text-sm">
+              {open ? '▴ свернуть' : '▾ детали'}
+            </span>
+          </div>
+          <div className="mt-1 flex items-baseline justify-between">
+            <span className="text-lg font-bold tabular">{formatMoney(earned)}</span>
+            <span className="text-sm text-slate-400 tabular">из {formatMoney(target)}</span>
+          </div>
+          <div className="mt-2 h-2 rounded-full bg-ink-800 overflow-hidden">
+            <div
+              className={['h-full rounded-full', reached ? 'bg-emerald-500' : 'bg-brand-500'].join(
+                ' '
+              )}
+              style={{ width: `${Math.round(progress * 100)}%` }}
+            />
+          </div>
+        </>
+      )}
+    </button>
   );
 }
 

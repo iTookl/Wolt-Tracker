@@ -12,19 +12,18 @@ import { ru } from 'date-fns/locale';
 /**
  * Расчётный период выплаты Wolt.
  *
- * Деньги приходят каждый ВТОРНИК. Одна выплата покрывает смены со вторника
+ * Деньги приходят каждую СРЕДУ. Одна выплата покрывает смены со вторника
  * по следующий ПОНЕДЕЛЬНИК включительно — т.е. интервал (понедельник, понедельник].
- * Пользователь называет период по краям-понедельникам: «8–15», «15–22».
  *
- * Пример (подтверждено реальными выплатами):
- *   смены 8–15 июня (вкл. Пн 15) ⇒ 💰 Вт 16.6
- *   смены 15–22 июня (вкл. Пн 22) ⇒ 💰 Вт 23.6
+ * Пример:
+ *   смены 8–15 июня (вкл. Пн 15) ⇒ 💰 Ср 17.6
+ *   смены 15–22 июня (вкл. Пн 22) ⇒ 💰 Ср 24.6
  */
 
 export interface PayWeek {
   start: Date; // вторник 00:00 (включительно) — для фильтрации смен
   end: Date; // понедельник 23:59:59 (включительно)
-  paidOn: Date; // вторник — день прихода денег
+  paidOn: Date; // среда — день прихода денег
 }
 
 /** Понедельник, которым закрывается период, содержащий дату `d` (включительно). */
@@ -38,7 +37,7 @@ export function payWeekOf(d: Date): PayWeek {
   const endMon = closingMonday(d);
   const start = startOfDay(subDays(endMon, 6)); // вторник = понедельник − 6 дней
   const end = endOfDay(endMon);
-  const paidOn = startOfDay(addDays(endMon, 1)); // вторник после закрытия
+  const paidOn = startOfDay(addDays(endMon, 2)); // среда после закрытия
   return { start, end, paidOn };
 }
 
@@ -63,4 +62,19 @@ export function payWeekLabel(week: PayWeek): string {
     return `${format(startMon, 'd')}–${format(endMon, 'd MMM', { locale: ru })}`;
   }
   return `${format(startMon, 'd MMM', { locale: ru })} – ${format(endMon, 'd MMM', { locale: ru })}`;
+}
+
+/**
+ * Подпись недели для экрана «Цель»: первый рабочий день (вторник) → день прихода
+ * денег (среда): «23 июн – 1 июл.». В отличие от `payWeekLabel` (края-понедельники,
+ * как в выписке Wolt), эта подпись показывает, когда именно зайдёт зарплата за период.
+ */
+export function payWeekGoalLabel(week: PayWeek): string {
+  const start = startOfDay(week.start); // вторник — первый рабочий день периода
+  const paid = startOfDay(week.paidOn); // среда — день прихода денег
+  const sameMonth = start.getMonth() === paid.getMonth();
+  if (sameMonth) {
+    return `${format(start, 'd')}–${format(paid, 'd MMM', { locale: ru })}`;
+  }
+  return `${format(start, 'd MMM', { locale: ru })} – ${format(paid, 'd MMM', { locale: ru })}`;
 }

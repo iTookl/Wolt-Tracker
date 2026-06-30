@@ -87,8 +87,6 @@ export function SummaryScreen() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Сводка</h1>
-
       <div className="grid grid-cols-3 gap-2">
         {periods.map((p) => (
           <button
@@ -178,7 +176,7 @@ export function SummaryScreen() {
 
       {period === 'week' && (
         <p className="text-xs text-slate-500">
-          Расчётная неделя Wolt: Пн–Вс. Деньги приходят во вторник после её закрытия.
+          Расчётная неделя Wolt: Вт–Пн. Деньги приходят в среду после её закрытия.
           {isCurrentWeek && ' Неделя ещё идёт — сумма копится.'}
         </p>
       )}

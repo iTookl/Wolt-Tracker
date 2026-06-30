@@ -1,18 +1,12 @@
-import { lazy, Suspense, useState } from 'react';
+import { useState } from 'react';
 import { TabBar } from './components/layout/TabBar';
 import type { Tab } from './components/layout/TabBar';
 import { IosInstallHint } from './components/IosInstallHint';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
-import { SummaryScreen } from './screens/SummaryScreen';
 import { PlanScreen } from './screens/PlanScreen';
-import { GoalScreen } from './screens/GoalScreen';
-
-// Экран статистики тянет recharts — грузим лениво, только при открытии.
-const StatsScreen = lazy(() =>
-  import('./screens/StatsScreen').then((m) => ({ default: m.StatsScreen }))
-);
+import { AnalyticsScreen } from './screens/AnalyticsScreen';
 
 const WELCOME_KEY = 'wolt-tracker:welcomeSeen';
 
@@ -39,15 +33,7 @@ export default function App() {
         {tab === 'home' && <HomeScreen />}
         {tab === 'history' && <HistoryScreen />}
         {tab === 'plan' && <PlanScreen />}
-        {tab === 'goal' && <GoalScreen />}
-        {tab === 'summary' && <SummaryScreen />}
-        {tab === 'stats' && (
-          <Suspense
-            fallback={<div className="text-center text-slate-500 py-20">Загрузка…</div>}
-          >
-            <StatsScreen />
-          </Suspense>
-        )}
+        {tab === 'analytics' && <AnalyticsScreen />}
       </main>
       <IosInstallHint />
       <TabBar active={tab} onChange={setTab} />

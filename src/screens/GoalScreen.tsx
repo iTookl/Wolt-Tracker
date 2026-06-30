@@ -6,7 +6,7 @@ import { useShifts } from '../hooks/useShifts';
 import { Card, StatCard } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { formatMoney, formatRate } from '../lib/money';
-import { payWeekLabel, payWeekOf } from '../lib/payout';
+import { payWeekGoalLabel, payWeekOf } from '../lib/payout';
 import {
   buildGoalPlan,
   periodByOffset,
@@ -21,7 +21,7 @@ const tabs: { id: GoalPeriodKind; label: string }[] = [
   { id: 'week', label: 'Неделя' },
 ];
 
-export function GoalScreen() {
+export function GoalPanel() {
   const { completed } = useShifts();
   const { goals, setGoals } = useAppState();
   const [kind, setKind] = useState<GoalPeriodKind>('month');
@@ -40,7 +40,7 @@ export function GoalScreen() {
   const periodLabel =
     kind === 'month'
       ? format(period.start, 'LLLL yyyy', { locale: ru })
-      : payWeekLabel(payWeekOf(period.start));
+      : payWeekGoalLabel(payWeekOf(period.start));
   const notStarted = period.start.getTime() > Date.now();
 
   function switchKind(k: GoalPeriodKind) {
@@ -56,8 +56,6 @@ export function GoalScreen() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Цель</h1>
-
       <div className="grid grid-cols-2 gap-2">
         {tabs.map((t) => (
           <button
