@@ -3,11 +3,14 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useAppState } from '../state/AppState';
 import { useShifts } from '../hooks/useShifts';
+import { usePlannedShifts } from '../hooks/usePlannedShifts';
 import { Card, StatCard } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { formatMoney, formatRate } from '../lib/money';
 import { payWeekGoalLabel, payWeekOf } from '../lib/payout';
+import { computeStats, LOW_DATA_THRESHOLD } from '../lib/stats';
 import {
+  autoPlansFromDays,
   buildGoalPlan,
   periodByOffset,
   overallBaseRate,
@@ -15,6 +18,22 @@ import {
   MAX_HOURS_PER_DAY,
   type GoalPeriodKind,
 } from '../lib/goal';
+
+// Старт смены для лучшего слота по истории (по первому часу слота).
+const SLOT_START: Record<string, number> = {
+  morning: 6,
+  noon: 11,
+  day: 15,
+  dinner: 18,
+  night: 22,
+};
+
+function bestStartHour(stats: ReturnType<typeof computeStats>): number {
+  const best = stats.byTimeOfDay
+    .filter((s) => s.rate != null && s.shiftCount >= LOW_DATA_THRESHOLD)
+    .sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0))[0];
+  return best ? SLOT_START[best.key] ?? 18 : 18; // фолбэк — вечер
+}
 
 const tabs: { id: GoalPeriodKind; label: string }[] = [
   { id: 'month', label: 'Месяц' },
@@ -36,6 +55,24 @@ export function GoalPanel() {
     () => buildGoalPlan(completed, target, period, wstats, overall),
     [completed, target, period, wstats, overall]
   );
+
+  const { planned, addPlanned, deletePlanned } = usePlannedShifts();
+  const stats = useMemo(() => computeStats(completed), [completed]);
+  const autoCount = useMemo(() => planned.filter((p) => p.auto).length, [planned]);
+
+  // Материализует рекомендованный график в редактируемые плановые смены.
+  // Заменяет прежние авто-планы; ручные планы и уже занятые дни не трогает.
+  function applyPlanToCalendar() {
+    const manualDays = new Set(planned.filter((p) => !p.auto).map((p) => p.date));
+    const fresh = plan.days.filter((d) => !manualDays.has(format(d.date, 'yyyy-MM-dd')));
+    const newPlans = autoPlansFromDays(fresh, bestStartHour(stats));
+    planned.filter((p) => p.auto).forEach((p) => deletePlanned(p.id));
+    newPlans.forEach((np) => addPlanned(np));
+  }
+
+  function clearAutoPlans() {
+    planned.filter((p) => p.auto).forEach((p) => deletePlanned(p.id));
+  }
 
   const periodLabel =
     kind === 'month'
@@ -156,7 +193,12 @@ export function GoalPanel() {
                       реалистичнее или работай больше часов.
                     </Card>
                   )}
-                  <ScheduleSection plan={plan} />
+                  <ScheduleSection
+                    plan={plan}
+                    autoCount={autoCount}
+                    onApply={applyPlanToCalendar}
+                    onClear={clearAutoPlans}
+                  />
                 </>
               )}
             </>
@@ -258,11 +300,26 @@ function PaceCard({ paceDelta }: { paceDelta: number }) {
   );
 }
 
-function ScheduleSection({ plan }: { plan: ReturnType<typeof buildGoalPlan> }) {
+function ScheduleSection({
+  plan,
+  autoCount,
+  onApply,
+  onClear,
+}: {
+  plan: ReturnType<typeof buildGoalPlan>;
+  autoCount: number;
+  onApply: () => void;
+  onClear: () => void;
+}) {
   if (plan.days.length === 0) {
     return (
-      <Card className="text-sm text-slate-400">
-        Свободных дней до конца периода нет, либо остаток уже закрыт другими сменами.
+      <Card className="text-sm text-slate-400 space-y-2">
+        <p>Свободных дней до конца периода нет, либо остаток уже закрыт другими сменами.</p>
+        {autoCount > 0 && (
+          <button onClick={onClear} className="text-rose-400/80 hover:text-rose-400">
+            Сбросить авто-план ({autoCount})
+          </button>
+        )}
       </Card>
     );
   }
@@ -277,7 +334,7 @@ function ScheduleSection({ plan }: { plan: ReturnType<typeof buildGoalPlan> }) {
       </div>
       <p className="text-xs text-slate-500">
         Сильные дни первыми, по {MAX_HOURS_PER_DAY} ч активной работы за день — это
-        суммарно, можно дробить (напр. ~4 днём + ~4 вечером, подзарядка и перерыв в счёт
+        суммарно, можно дробить (напр. ~3 днём + ~3 вечером, подзарядка и перерыв в счёт
         не идут). Прогноз ~{formatMoney(plan.projectedEarnings)} к концу периода.
       </p>
       <div className="space-y-2">
@@ -301,6 +358,18 @@ function ScheduleSection({ plan }: { plan: ReturnType<typeof buildGoalPlan> }) {
           </Card>
         ))}
       </div>
+
+      <Button full size="lg" onClick={onApply}>
+        📅 Распланировать в календарь
+      </Button>
+      {autoCount > 0 && (
+        <p className="text-xs text-slate-500 text-center">
+          🗓 {autoCount} смен под цель на календаре ·{' '}
+          <button onClick={onClear} className="text-rose-400/80 hover:text-rose-400">
+            сбросить
+          </button>
+        </p>
+      )}
     </section>
   );
 }

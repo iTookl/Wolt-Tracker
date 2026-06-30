@@ -3,11 +3,13 @@ import {
   addMonths,
   differenceInCalendarDays,
   endOfMonth,
+  format,
   startOfDay,
   startOfMonth,
 } from 'date-fns';
-import type { Shift } from '../types';
+import type { PlannedShift, Shift } from '../types';
 import { activeHours } from './time';
+import { newId } from './id';
 import { payWeekOf, shiftPayWeek } from './payout';
 
 /**
@@ -15,7 +17,7 @@ import { payWeekOf, shiftPayWeek } from './payout';
  *
  * Ключевые решения (согласованы с пользователем):
  *  - В прогресс идёт ТОЛЬКО база (`shift.earnings`), без чаевых.
- *  - Потолок 8 ч на день, работать можно в любой день недели.
+ *  - Потолок 6 ч на день (`MAX_HOURS_PER_DAY`), работать можно в любой день недели.
  *  - Стратегия «максимум денег»: сильные дни грузим первыми на полный потолок,
  *    пока цель не закрыта; последний нужный день остаётся полным (допускаем
  *    перевыполнение, а не подрезаем часы).
@@ -23,7 +25,7 @@ import { payWeekOf, shiftPayWeek } from './payout';
  *    честно помечаем и подмешиваем общий средний ₪/ч.
  */
 
-export const MAX_HOURS_PER_DAY = 8;
+export const MAX_HOURS_PER_DAY = 6;
 
 /** Меньше этого числа отработанных дней по дню недели — данных мало. */
 export const LOW_DATA_DAYS = 2;
@@ -169,7 +171,7 @@ export interface GoalPlan {
   days: PlannedDay[]; // дни с часами > 0, в хронологическом порядке
   recommendedHours: number; // сумма часов по графику
   projectedEarnings: number; // earned + ожидание по графику
-  feasible: boolean; // достижимо ли при потолке 8 ч на доступных днях
+  feasible: boolean; // достижимо ли при потолке MAX_HOURS_PER_DAY на доступных днях
   shortfallHours: number; // не помещается часов (если недостижимо), по общему ₪/ч
   availableDayCount: number; // сколько ещё свободных дней до конца периода
   hasHistory: boolean; // есть ли вообще, на что опереться
@@ -187,7 +189,7 @@ function workedDayKeys(shifts: Shift[]): Set<string> {
 /**
  * Собрать план достижения цели на период.
  * Стратегия «максимум денег»: сортируем доступные дни по ₪/ч убыванию и грузим
- * по 8 ч, пока не закроем остаток; последний день остаётся полным.
+ * по MAX_HOURS_PER_DAY ч, пока не закроем остаток; последний день остаётся полным.
  */
 export function buildGoalPlan(
   shifts: Shift[],
@@ -284,4 +286,26 @@ export function buildGoalPlan(
     feasible,
     shortfallHours,
   };
+}
+
+const pad2 = (n: number) => n.toString().padStart(2, '0');
+
+/**
+ * Материализует рекомендованный график (`GoalPlan.days`) в плановые смены (`auto:true`).
+ * Старт у всех — `startHour` (лучший слот по истории), длительность = часы дня.
+ * Если день уже занят (есть смена/ручной план) — фильтруется снаружи.
+ */
+export function autoPlansFromDays(days: PlannedDay[], startHour: number): PlannedShift[] {
+  return days.map((d) => {
+    const hours = Math.round(d.hours);
+    const endHour = (startHour + hours) % 24; // конец ≤ старта ⇒ смена уходит за полночь
+    return {
+      id: newId(),
+      date: format(d.date, 'yyyy-MM-dd'),
+      plannedStart: `${pad2(startHour)}:00`,
+      plannedEnd: `${pad2(endHour)}:00`,
+      targetEarnings: Math.round(d.expected),
+      auto: true,
+    };
+  });
 }

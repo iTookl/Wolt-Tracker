@@ -65,16 +65,16 @@ export function payWeekLabel(week: PayWeek): string {
 }
 
 /**
- * Подпись недели для экрана «Цель»: первый рабочий день (вторник) → день прихода
- * денег (среда): «23 июн – 1 июл.». В отличие от `payWeekLabel` (края-понедельники,
- * как в выписке Wolt), эта подпись показывает, когда именно зайдёт зарплата за период.
+ * Подпись недели для экрана «Цель» по краям-вторникам: начало недели (вторник) →
+ * вторник следующей недели: «23–30 июн.», далее «30 июн – 7 июл.». В отличие от
+ * `payWeekLabel` (края-понедельники, как в выписке Wolt).
  */
 export function payWeekGoalLabel(week: PayWeek): string {
-  const start = startOfDay(week.start); // вторник — первый рабочий день периода
-  const paid = startOfDay(week.paidOn); // среда — день прихода денег
-  const sameMonth = start.getMonth() === paid.getMonth();
+  const start = startOfDay(week.start); // вторник — начало недели
+  const next = startOfDay(addDays(week.start, 7)); // вторник следующей недели
+  const sameMonth = start.getMonth() === next.getMonth();
   if (sameMonth) {
-    return `${format(start, 'd')}–${format(paid, 'd MMM', { locale: ru })}`;
+    return `${format(start, 'd')}–${format(next, 'd MMM', { locale: ru })}`;
   }
-  return `${format(start, 'd MMM', { locale: ru })} – ${format(paid, 'd MMM', { locale: ru })}`;
+  return `${format(start, 'd MMM', { locale: ru })} – ${format(next, 'd MMM', { locale: ru })}`;
 }

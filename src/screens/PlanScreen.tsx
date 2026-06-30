@@ -207,7 +207,7 @@ export function PlanScreen() {
           open={!!editingPlan}
           planned={editingPlan}
           onClose={() => setEditingPlan(null)}
-          onSave={(patch) => updatePlanned(editingPlan.id, patch)}
+          onSave={(patch) => updatePlanned(editingPlan.id, { ...patch, auto: false })}
           onDelete={() => deletePlanned(editingPlan.id)}
         />
       )}

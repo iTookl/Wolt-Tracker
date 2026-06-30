@@ -33,8 +33,13 @@ export function MonthCalendar({ monthDate, plans, shifts, selected, onSelectDay 
   }, [monthDate]);
 
   const plannedByDay = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const p of plans) m.set(p.date, (m.get(p.date) ?? 0) + 1);
+    const m = new Map<string, { manual: number; auto: number }>();
+    for (const p of plans) {
+      const e = m.get(p.date) ?? { manual: 0, auto: 0 };
+      if (p.auto) e.auto += 1;
+      else e.manual += 1;
+      m.set(p.date, e);
+    }
     return m;
   }, [plans]);
 
@@ -71,7 +76,8 @@ export function MonthCalendar({ monthDate, plans, shifts, selected, onSelectDay 
           const k = dayKey(d);
           const inMonth = isSameMonth(d, monthDate);
           const worked = workedByDay.get(k) ?? 0;
-          const planned = plannedByDay.get(k) ?? 0;
+          const pm = plannedByDay.get(k) ?? { manual: 0, auto: 0 };
+          const planned = pm.manual + pm.auto;
           const isSel = selected === k;
           const today = isToday(d);
           const isPayout = payoutDays.has(k);
@@ -104,7 +110,10 @@ export function MonthCalendar({ monthDate, plans, shifts, selected, onSelectDay 
               {/* Маркеры */}
               <div className="flex items-center gap-0.5 h-1.5 mt-0.5">
                 {worked > 0 && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
-                {planned > 0 && <span className="h-1.5 w-1.5 rounded-full bg-brand-400" />}
+                {pm.manual > 0 && <span className="h-1.5 w-1.5 rounded-full bg-brand-400" />}
+                {pm.auto > 0 && (
+                  <span className="h-1.5 w-1.5 rounded-full border border-brand-400" />
+                )}
               </div>
               {isPayout && (
                 <span className="absolute top-0.5 right-1 text-[9px] leading-none" title="Выплата Wolt">
@@ -123,6 +132,9 @@ export function MonthCalendar({ monthDate, plans, shifts, selected, onSelectDay 
         </span>
         <span className="flex items-center gap-1">
           <span className="h-1.5 w-1.5 rounded-full bg-brand-400" /> план
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-1.5 w-1.5 rounded-full border border-brand-400" /> под цель
         </span>
         <span className="flex items-center gap-1">💰 выплата Wolt</span>
       </div>

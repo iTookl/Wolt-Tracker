@@ -26,6 +26,7 @@ export interface PlannedShift {
   plannedStart: string; // "18:00"
   plannedEnd: string; // "23:00"
   targetEarnings: number | null;
+  auto?: boolean; // true = сгенерирован планировщиком цели; заменяется при пересчёте
 }
 
 /** Цели по заработку. Считаются по базе (без чаевых). */

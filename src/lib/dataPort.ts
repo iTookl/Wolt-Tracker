@@ -117,6 +117,7 @@ export function parseImport(text: string): ParsedImport {
         plannedStart: p.plannedStart,
         plannedEnd: p.plannedEnd,
         targetEarnings: p.targetEarnings ?? null,
+        auto: p.auto ?? false,
       }))
     : [];
   const goals: Goals = {
