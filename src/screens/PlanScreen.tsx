@@ -57,6 +57,7 @@ export function PlanScreen() {
     for (const d of plan.autoDays) m.set(d.dateKey, { hours: d.hours });
     return m;
   }, [plan.autoDays]);
+  const restSet = useMemo(() => new Set(plan.restDays), [plan.restDays]);
 
   const monthName = format(monthDate, 'LLLL', { locale: ru });
 
@@ -73,6 +74,7 @@ export function PlanScreen() {
   );
   const dayAuto = selectedDay ? plan.autoByDay.get(selectedDay) : undefined;
   const dayOff = selectedDay ? offDays.has(selectedDay) : false;
+  const dayRest = selectedDay ? restSet.has(selectedDay) : false;
 
   function makeDraftFor(date: string): PlannedShift {
     return { id: newId(), date, plannedStart: '18:00', plannedEnd: '23:00', targetEarnings: null };
@@ -134,6 +136,7 @@ export function PlanScreen() {
         shifts={completed}
         autoDays={autoMap}
         offDays={offDays}
+        restDays={restSet}
         selected={selectedDay}
         onSelectDay={(k) => setSelectedDay(k)}
       />
@@ -190,6 +193,13 @@ export function PlanScreen() {
                   Рекомендация. Можешь закрепить сменой (задать точное время) или сделать день
                   выходным — остальные дни пересчитаются.
                 </div>
+              </div>
+            )}
+
+            {dayRest && dayShifts.length === 0 && dayPlans.length === 0 && (
+              <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 p-3 text-sm text-emerald-200">
+                😌 По графику этот день можно не работать — ты в графике под цель. Захочешь — всё
+                равно добавь смену.
               </div>
             )}
 
@@ -344,6 +354,12 @@ function GoalCard({
               обрез.
             </span>
           )}
+        </div>
+      )}
+      {plan.hasHistory && plan.restDays.length > 0 && (
+        <div className="text-xs text-emerald-300/90">
+          😌 Можно отдыхать: {plan.restDays.length} дн — по графику под цель они не нужны (отмечены
+          💤 в календаре).
         </div>
       )}
     </Card>

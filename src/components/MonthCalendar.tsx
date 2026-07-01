@@ -22,7 +22,8 @@ interface Props {
   plans: PlannedShift[]; // ручные планы
   shifts: Shift[]; // завершённые
   autoDays?: Map<string, { hours: number }>; // рекомендации под цель (derived)
-  offDays?: Set<string>; // выходные
+  offDays?: Set<string>; // выходные (заданы пользователем)
+  restDays?: Set<string>; // свободные дни под цель — можно отдыхать
   selected: string | null; // yyyy-MM-dd
   onSelectDay: (dateKey: string) => void;
 }
@@ -33,6 +34,7 @@ export function MonthCalendar({
   shifts,
   autoDays,
   offDays,
+  restDays,
   selected,
   onSelectDay,
 }: Props) {
@@ -84,6 +86,7 @@ export function MonthCalendar({
           const planned = plannedByDay.get(k) ?? 0;
           const auto = autoDays?.get(k);
           const off = offDays?.has(k) ?? false;
+          const rest = (restDays?.has(k) ?? false) && !off && !auto && worked === 0 && planned === 0;
           const isSel = selected === k;
           const today = isToday(d);
           const isPayout = payoutDays.has(k);
@@ -129,6 +132,7 @@ export function MonthCalendar({
                   </span>
                 )}
                 {off && <span className="text-[9px] leading-none">🚫</span>}
+                {rest && <span className="text-[9px] leading-none">💤</span>}
               </div>
               {isPayout && (
                 <span className="absolute top-0.5 right-1 text-[9px] leading-none" title="Выплата Wolt">
@@ -152,6 +156,7 @@ export function MonthCalendar({
           <span className="text-brand-400">Nч</span> под цель
         </span>
         <span className="flex items-center gap-1">🚫 выходной</span>
+        <span className="flex items-center gap-1">💤 можно отдохнуть</span>
         <span className="flex items-center gap-1">💰 выплата</span>
       </div>
     </div>

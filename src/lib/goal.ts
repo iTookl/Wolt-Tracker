@@ -359,6 +359,7 @@ export interface MonthPlan {
   weeksLeft: number;
   autoDays: MonthPlanDay[]; // рекомендованные дни (хронологически)
   autoByDay: Map<string, MonthPlanDay>;
+  restDays: string[]; // свободные дни: доступны, но под цель не нужны — можно отдыхать
   totalHours: number; // сколько всего часов нужно отработать по графику
   workDays: number; // в скольких днях
   feasible: boolean; // помещается ли остаток даже при потолке PLAN_ABS_MAX_HOURS
@@ -511,6 +512,13 @@ export function buildMonthPlan(
     feasible || overall == null || overall <= 0 ? 0 : (remaining - acc) / overall;
   const autoByDay = new Map(autoDays.map((d) => [d.dateKey, d] as const));
 
+  // Свободные дни: доступные, которые график под цель НЕ занял (ты в графике/с
+  // опережением). Если цель закрыта — свободен весь остаток месяца.
+  const restDays =
+    target != null && hasHistory
+      ? available.filter((a) => !autoByDay.has(a.key)).map((a) => a.key)
+      : [];
+
   // Недельная разбивка по расчётным неделям Wolt (Вт→Пн, до выплаты), обрезанная по месяцу.
   const weeks: WeekBucket[] = [];
   let w = payWeekOf(new Date(monthStart));
@@ -561,6 +569,7 @@ export function buildMonthPlan(
     weeksLeft,
     autoDays,
     autoByDay,
+    restDays,
     totalHours,
     workDays,
     feasible,
