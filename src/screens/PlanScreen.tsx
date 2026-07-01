@@ -4,14 +4,7 @@ import { ru } from 'date-fns/locale';
 import { useShifts } from '../hooks/useShifts';
 import { usePlannedShifts } from '../hooks/usePlannedShifts';
 import { useAppState } from '../state/AppState';
-import {
-  buildMonthPlan,
-  overallBaseRate,
-  weekdayStats,
-  PLAN_MIN_HOURS,
-  PLAN_MAX_HOURS,
-  type MonthPlan,
-} from '../lib/goal';
+import { buildMonthPlan, overallBaseRate, weekdayStats, type MonthPlan } from '../lib/goal';
 import { activeMs, formatHm, ratePerHour, totalEarnings } from '../lib/time';
 import { formatMoney, formatRate } from '../lib/money';
 import { MonthCalendar, dayKey } from '../components/MonthCalendar';
@@ -339,10 +332,18 @@ function GoalCard({
           Пока нет завершённых смен с заработком — график построится, когда накопится статистика.
         </div>
       )}
-      {plan.hasHistory && !plan.feasible && !plan.reached && (
-        <div className="text-xs text-rose-300">
-          ⚠️ При {PLAN_MIN_HOURS}–{PLAN_MAX_HOURS} ч/день цель впритык недостижима: не хватает ~
-          {Math.ceil(plan.shortfallHours)} ч. Снизь цель, убери выходные или работай дольше.
+      {plan.hasHistory && !plan.reached && plan.workDays > 0 && (
+        <div className="text-xs text-slate-400">
+          Чтобы дойти: ~<b className="text-slate-200 tabular">{plan.totalHours} ч</b> за{' '}
+          <span className="tabular">{plan.workDays} дн</span> · ≈
+          <span className="tabular">{Math.round(plan.totalHours / plan.workDays)} ч/день</span>
+          {!plan.feasible && (
+            <span className="text-rose-300">
+              {' '}
+              — даже так не хватает ~{Math.ceil(plan.shortfallHours)} ч: свободных дней в месяце в
+              обрез.
+            </span>
+          )}
         </div>
       )}
     </Card>

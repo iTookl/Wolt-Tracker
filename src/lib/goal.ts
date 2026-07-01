@@ -316,6 +316,8 @@ export function autoPlansFromDays(days: PlannedDay[], startHour: number): Planne
 /** Полоса длительности рекомендованной смены: часы «плавают» по ставке дня. */
 export const PLAN_MIN_HOURS = 3;
 export const PLAN_MAX_HOURS = 9;
+/** Физический потолок часов в день при «догоняющем» графике под большую цель. */
+export const PLAN_ABS_MAX_HOURS = 16;
 
 const isoKey = (d: Date) => format(d, 'yyyy-MM-dd');
 
@@ -357,7 +359,9 @@ export interface MonthPlan {
   weeksLeft: number;
   autoDays: MonthPlanDay[]; // рекомендованные дни (хронологически)
   autoByDay: Map<string, MonthPlanDay>;
-  feasible: boolean; // помещается ли остаток в полосу часов
+  totalHours: number; // сколько всего часов нужно отработать по графику
+  workDays: number; // в скольких днях
+  feasible: boolean; // помещается ли остаток даже при потолке PLAN_ABS_MAX_HOURS
   shortfallHours: number;
   weeks: WeekBucket[];
   hasHistory: boolean;
@@ -456,31 +460,52 @@ export function buildMonthPlan(
   const sorted = [...available].sort(
     (a, b) => b.rate - a.rate || a.date.getTime() - b.date.getTime()
   );
+  type AvailDay = { date: Date; key: string; wd: number; rate: number; low: boolean };
   const autoDays: MonthPlanDay[] = [];
   let acc = 0;
-  if (target != null && !reached && hasHistory) {
-    for (const d of sorted) {
-      if (acc >= remaining) break;
-      let hours = Math.max(1, hoursForRate(d.rate));
-      let expected = hours * d.rate;
-      if (acc + expected > remaining) {
-        const needHours = Math.max(1, Math.ceil((remaining - acc) / d.rate));
-        hours = Math.min(hours, needHours);
-        expected = hours * d.rate;
+  const push = (d: AvailDay, hours: number) => {
+    autoDays.push({
+      dateKey: d.key,
+      date: d.date,
+      weekday: d.wd,
+      hours,
+      expected: hours * d.rate,
+      ratePerHour: d.rate,
+      lowData: d.low,
+    });
+    acc += hours * d.rate;
+  };
+
+  if (target != null && !reached && hasHistory && sorted.length > 0) {
+    const withBase = sorted.map((d) => ({ d, baseHours: Math.max(1, hoursForRate(d.rate)) }));
+    const baseTotal = withBase.reduce((s, x) => s + x.baseHours * x.d.rate, 0);
+
+    if (baseTotal >= remaining) {
+      // Комфортно: сильные дни по полосе часов, пока не закроем; последний подрезаем.
+      for (const { d, baseHours } of withBase) {
+        if (acc >= remaining) break;
+        let hours = baseHours;
+        if (acc + hours * d.rate > remaining) {
+          hours = Math.min(hours, Math.max(1, Math.ceil((remaining - acc) / d.rate)));
+        }
+        push(d, hours);
       }
-      autoDays.push({
-        dateKey: d.key,
-        date: d.date,
-        weekday: d.wd,
-        hours,
-        expected,
-        ratePerHour: d.rate,
-        lowData: d.low,
-      });
-      acc += expected;
+    } else {
+      // Полосы мало под такую цель — «догоняем»: поднимаем часы на ВСЕХ доступных
+      // днях пропорционально (сильные дни всё равно длиннее), до физического потолка.
+      const factor = remaining / baseTotal;
+      for (const { d, baseHours } of withBase) {
+        const hours = Math.min(
+          PLAN_ABS_MAX_HOURS,
+          Math.max(1, Math.round(baseHours * factor))
+        );
+        push(d, hours);
+      }
     }
   }
   autoDays.sort((a, b) => a.date.getTime() - b.date.getTime());
+  const totalHours = autoDays.reduce((s, d) => s + d.hours, 0);
+  const workDays = autoDays.length;
   const feasible = target == null || reached || acc >= remaining;
   const shortfallHours =
     feasible || overall == null || overall <= 0 ? 0 : (remaining - acc) / overall;
@@ -534,6 +559,8 @@ export function buildMonthPlan(
     weeksLeft,
     autoDays,
     autoByDay,
+    totalHours,
+    workDays,
     feasible,
     shortfallHours,
     weeks,
