@@ -31,8 +31,9 @@ export interface PlannedShift {
 
 /** Цели по заработку. Считаются по базе (без чаевых). */
 export interface Goals {
-  monthlyTarget: number | null; // ₪ за календарный месяц
-  weeklyTarget: number | null; // ₪ за расчётную неделю Wolt (Вт→Пн)
+  monthlyTarget: number | null; // ₪ за календарный месяц — единственная задаваемая цель
+  weeklyTarget: number | null; // устар.: недельная цель больше не задаётся в UI (совместимость)
+  offDays: string[]; // "yyyy-MM-dd" — выходные, исключаются из авто-плана под цель
 }
 
 /** Данные, которые вводятся при завершении смены. */

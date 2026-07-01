@@ -22,7 +22,7 @@ export interface DbSnapshot {
   goals: Goals;
 }
 
-const emptyGoals = (): Goals => ({ monthlyTarget: null, weeklyTarget: null });
+const emptyGoals = (): Goals => ({ monthlyTarget: null, weeklyTarget: null, offDays: [] });
 
 function empty(): PersistShape {
   return { version: SCHEMA_VERSION, shifts: [], planned: [], goals: emptyGoals() };
@@ -33,6 +33,7 @@ function normalizeGoals(g: Partial<Goals> | null | undefined): Goals {
   return {
     monthlyTarget: g?.monthlyTarget ?? null,
     weeklyTarget: g?.weeklyTarget ?? null,
+    offDays: Array.isArray(g?.offDays) ? g!.offDays : [],
   };
 }
 
@@ -48,7 +49,9 @@ function migrate(data: Partial<PersistShape> | null): PersistShape {
   return {
     version: SCHEMA_VERSION,
     shifts,
-    planned: Array.isArray(data.planned) ? data.planned : [],
+    // Устаревшие авто-планы (auto:true) чистим: в новой модели график под цель
+    // считается на лету и не персистится. Ручные планы остаются.
+    planned: (Array.isArray(data.planned) ? data.planned : []).filter((p) => !p?.auto),
     goals: normalizeGoals(data.goals), // v1 → v2: цели появились здесь
   };
 }

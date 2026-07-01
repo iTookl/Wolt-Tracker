@@ -123,6 +123,7 @@ export function parseImport(text: string): ParsedImport {
   const goals: Goals = {
     monthlyTarget: obj.goals?.monthlyTarget ?? null,
     weeklyTarget: obj.goals?.weeklyTarget ?? null,
+    offDays: Array.isArray(obj.goals?.offDays) ? obj.goals!.offDays : [],
   };
   return { shifts, planned, goals };
 }

@@ -3,12 +3,15 @@ import {
   addMonths,
   differenceInCalendarDays,
   endOfMonth,
+  endOfWeek,
   format,
   startOfDay,
   startOfMonth,
+  startOfWeek,
 } from 'date-fns';
+import { ru } from 'date-fns/locale';
 import type { PlannedShift, Shift } from '../types';
-import { activeHours } from './time';
+import { activeHours, plannedRange } from './time';
 import { newId } from './id';
 import { payWeekOf, shiftPayWeek } from './payout';
 
@@ -308,4 +311,231 @@ export function autoPlansFromDays(days: PlannedDay[], startHour: number): Planne
       auto: true,
     };
   });
+}
+
+// ─── Планировщик месяца (новая вкладка «План») ────────────────────────────────
+
+/** Полоса длительности рекомендованной смены: часы «плавают» по ставке дня. */
+export const PLAN_MIN_HOURS = 3;
+export const PLAN_MAX_HOURS = 9;
+
+const isoKey = (d: Date) => format(d, 'yyyy-MM-dd');
+
+/** Подпись недели (Вс–Сб), пересечённой с месяцем: «29 июн–4 июл», «5–11 июл». */
+function weekRangeLabel(a: Date, b: Date): string {
+  if (a.getMonth() === b.getMonth()) {
+    return `${format(a, 'd')}–${format(b, 'd MMM', { locale: ru })}`;
+  }
+  return `${format(a, 'd MMM', { locale: ru })} – ${format(b, 'd MMM', { locale: ru })}`;
+}
+
+export interface MonthPlanDay {
+  dateKey: string;
+  date: Date;
+  weekday: number;
+  hours: number; // рекомендованная длительность (переменная по ставке)
+  expected: number; // ожидаемая база за день
+  ratePerHour: number;
+  lowData: boolean;
+}
+
+export interface WeekBucket {
+  label: string;
+  start: Date; // край, обрезанный по месяцу
+  end: Date;
+  planned: number; // авто + ручные планы недели, ₪
+  earned: number; // факт по базе за неделю, ₪
+}
+
+export interface MonthPlan {
+  target: number | null;
+  earned: number; // база, заработанная в месяце
+  manualPlanned: number; // ожидание по ручным планам (будущие дни месяца)
+  remaining: number; // сколько ещё раскидать авто-планом (≥0)
+  reached: boolean;
+  progress: number; // 0..1
+  perWeekNeed: number; // остаток ÷ оставшиеся недели
+  weeksLeft: number;
+  autoDays: MonthPlanDay[]; // рекомендованные дни (хронологически)
+  autoByDay: Map<string, MonthPlanDay>;
+  feasible: boolean; // помещается ли остаток в полосу часов
+  shortfallHours: number;
+  weeks: WeekBucket[];
+  hasHistory: boolean;
+}
+
+/**
+ * План на календарный месяц под одну месячную цель.
+ * Стратегия «максимум денег» с ПЕРЕМЕННЫМИ часами: сильные дни недели длиннее
+ * (ближе к PLAN_MAX_HOURS), слабые короче (к PLAN_MIN_HOURS). Дни отработанные,
+ * с ручным планом и помеченные выходными — из авто-распределения исключаются.
+ */
+export function buildMonthPlan(
+  shifts: Shift[],
+  planned: PlannedShift[],
+  target: number | null,
+  monthDate: Date,
+  wstats: WeekdayStat[],
+  overall: number | null,
+  offDays: Set<string>,
+  now: Date = new Date()
+): MonthPlan {
+  const monthStart = startOfMonth(monthDate).getTime();
+  const monthEnd = endOfMonth(monthDate).getTime();
+  const inMonth = (t: number) => t >= monthStart && t <= monthEnd;
+  const todayStart = startOfDay(now).getTime();
+  const rateFor = (wd: number) => wstats[wd]?.ratePerHour ?? overall ?? 0;
+
+  // Факт по базе и отработанные дни.
+  let earned = 0;
+  const workedDays = new Set<string>();
+  for (const s of shifts) {
+    if (s.status !== 'completed') continue;
+    const t = new Date(s.startedAt).getTime();
+    if (!inMonth(t)) continue;
+    workedDays.add(isoKey(new Date(s.startedAt)));
+    if (s.earnings != null) earned += s.earnings;
+  }
+
+  // Ручные планы месяца (не авто).
+  const manualExpectedByDay = new Map<string, number>();
+  const manualDays = new Set<string>();
+  let manualPlanned = 0;
+  for (const p of planned) {
+    if (p.auto) continue;
+    const t = new Date(`${p.date}T00:00`).getTime();
+    if (!inMonth(t)) continue;
+    manualDays.add(p.date);
+    let exp = p.targetEarnings ?? 0;
+    if (exp <= 0) {
+      const { start, end } = plannedRange(p.date, p.plannedStart, p.plannedEnd);
+      const hrs = Math.max(0, (end.getTime() - start.getTime()) / 3_600_000);
+      exp = hrs * rateFor(new Date(t).getDay());
+    }
+    manualExpectedByDay.set(p.date, (manualExpectedByDay.get(p.date) ?? 0) + exp);
+    if (t >= todayStart && !workedDays.has(p.date)) manualPlanned += exp;
+  }
+
+  const committed = earned + manualPlanned;
+  const remaining = target != null ? Math.max(0, target - committed) : 0;
+  const reached = target != null && committed >= target;
+  const progress = target != null && target > 0 ? Math.min(1, committed / target) : 0;
+  const hasHistory = overall != null;
+
+  // Доступные дни: от сегодня (или начала месяца) до конца месяца.
+  const available: { date: Date; key: string; wd: number; rate: number; low: boolean }[] = [];
+  let cur = startOfDay(now.getTime() > monthStart ? now : new Date(monthStart));
+  while (cur.getTime() <= monthEnd) {
+    const key = isoKey(cur);
+    if (!workedDays.has(key) && !manualDays.has(key) && !offDays.has(key)) {
+      const wd = cur.getDay();
+      const st = wstats[wd];
+      const rate = st?.ratePerHour ?? overall ?? 0;
+      if (rate > 0) {
+        available.push({
+          date: new Date(cur),
+          key,
+          wd,
+          rate,
+          low: !st || st.ratePerHour == null || st.lowData,
+        });
+      }
+    }
+    cur = addDays(cur, 1);
+  }
+
+  // Переменные часы: линейно от ставки в полосу [MIN, MAX].
+  const rates = available.map((a) => a.rate);
+  const rMin = rates.length ? Math.min(...rates) : 0;
+  const rMax = rates.length ? Math.max(...rates) : 0;
+  const hoursForRate = (rate: number): number => {
+    if (rMax <= rMin) return Math.round((PLAN_MIN_HOURS + PLAN_MAX_HOURS) / 2);
+    const norm = (rate - rMin) / (rMax - rMin);
+    return Math.round(PLAN_MIN_HOURS + (PLAN_MAX_HOURS - PLAN_MIN_HOURS) * norm);
+  };
+
+  const sorted = [...available].sort(
+    (a, b) => b.rate - a.rate || a.date.getTime() - b.date.getTime()
+  );
+  const autoDays: MonthPlanDay[] = [];
+  let acc = 0;
+  if (target != null && !reached && hasHistory) {
+    for (const d of sorted) {
+      if (acc >= remaining) break;
+      let hours = Math.max(1, hoursForRate(d.rate));
+      let expected = hours * d.rate;
+      if (acc + expected > remaining) {
+        const needHours = Math.max(1, Math.ceil((remaining - acc) / d.rate));
+        hours = Math.min(hours, needHours);
+        expected = hours * d.rate;
+      }
+      autoDays.push({
+        dateKey: d.key,
+        date: d.date,
+        weekday: d.wd,
+        hours,
+        expected,
+        ratePerHour: d.rate,
+        lowData: d.low,
+      });
+      acc += expected;
+    }
+  }
+  autoDays.sort((a, b) => a.date.getTime() - b.date.getTime());
+  const feasible = target == null || reached || acc >= remaining;
+  const shortfallHours =
+    feasible || overall == null || overall <= 0 ? 0 : (remaining - acc) / overall;
+  const autoByDay = new Map(autoDays.map((d) => [d.dateKey, d] as const));
+
+  // Недельная разбивка (Вс–Сб), обрезанная по месяцу.
+  const weeks: WeekBucket[] = [];
+  let ws = startOfWeek(new Date(monthStart), { weekStartsOn: 0 });
+  while (ws.getTime() <= monthEnd) {
+    const we = endOfWeek(ws, { weekStartsOn: 0 });
+    const cs = Math.max(ws.getTime(), monthStart);
+    const ce = Math.min(we.getTime(), monthEnd);
+    let plannedW = 0;
+    for (const d of autoDays) {
+      const t = d.date.getTime();
+      if (t >= cs && t <= ce) plannedW += d.expected;
+    }
+    for (const [k, exp] of manualExpectedByDay) {
+      const t = new Date(`${k}T00:00`).getTime();
+      if (t >= cs && t <= ce) plannedW += exp;
+    }
+    let earnedW = 0;
+    for (const s of shifts) {
+      if (s.status !== 'completed' || s.earnings == null) continue;
+      const t = new Date(s.startedAt).getTime();
+      if (t >= cs && t <= ce) earnedW += s.earnings;
+    }
+    weeks.push({
+      label: weekRangeLabel(new Date(cs), new Date(ce)),
+      start: new Date(cs),
+      end: new Date(ce),
+      planned: Math.round(plannedW),
+      earned: Math.round(earnedW),
+    });
+    ws = addDays(ws, 7);
+  }
+
+  const weeksLeft = Math.max(1, weeks.filter((w) => w.end.getTime() >= todayStart).length);
+  const perWeekNeed = target != null ? Math.round(remaining / weeksLeft) : 0;
+
+  return {
+    target,
+    earned,
+    manualPlanned,
+    remaining,
+    reached,
+    progress,
+    perWeekNeed,
+    weeksLeft,
+    autoDays,
+    autoByDay,
+    feasible,
+    shortfallHours,
+    weeks,
+    hasHistory,
+  };
 }

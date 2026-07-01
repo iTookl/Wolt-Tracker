@@ -19,13 +19,23 @@ const dayKey = (d: Date) => format(d, 'yyyy-MM-dd');
 
 interface Props {
   monthDate: Date;
-  plans: PlannedShift[];
+  plans: PlannedShift[]; // ручные планы
   shifts: Shift[]; // завершённые
+  autoDays?: Map<string, { hours: number }>; // рекомендации под цель (derived)
+  offDays?: Set<string>; // выходные
   selected: string | null; // yyyy-MM-dd
   onSelectDay: (dateKey: string) => void;
 }
 
-export function MonthCalendar({ monthDate, plans, shifts, selected, onSelectDay }: Props) {
+export function MonthCalendar({
+  monthDate,
+  plans,
+  shifts,
+  autoDays,
+  offDays,
+  selected,
+  onSelectDay,
+}: Props) {
   const days = useMemo(() => {
     const start = startOfWeek(startOfMonth(monthDate), { weekStartsOn: 0 });
     const end = endOfWeek(endOfMonth(monthDate), { weekStartsOn: 0 });
@@ -33,13 +43,8 @@ export function MonthCalendar({ monthDate, plans, shifts, selected, onSelectDay 
   }, [monthDate]);
 
   const plannedByDay = useMemo(() => {
-    const m = new Map<string, { manual: number; auto: number }>();
-    for (const p of plans) {
-      const e = m.get(p.date) ?? { manual: 0, auto: 0 };
-      if (p.auto) e.auto += 1;
-      else e.manual += 1;
-      m.set(p.date, e);
-    }
+    const m = new Map<string, number>();
+    for (const p of plans) m.set(p.date, (m.get(p.date) ?? 0) + 1);
     return m;
   }, [plans]);
 
@@ -52,7 +57,7 @@ export function MonthCalendar({ monthDate, plans, shifts, selected, onSelectDay 
     return m;
   }, [shifts]);
 
-  // Дни выплат (вторники) в видимом диапазоне.
+  // Дни выплат (среды) в видимом диапазоне.
   const payoutDays = useMemo(() => {
     const set = new Set<string>();
     for (const d of days) {
@@ -76,8 +81,9 @@ export function MonthCalendar({ monthDate, plans, shifts, selected, onSelectDay 
           const k = dayKey(d);
           const inMonth = isSameMonth(d, monthDate);
           const worked = workedByDay.get(k) ?? 0;
-          const pm = plannedByDay.get(k) ?? { manual: 0, auto: 0 };
-          const planned = pm.manual + pm.auto;
+          const planned = plannedByDay.get(k) ?? 0;
+          const auto = autoDays?.get(k);
+          const off = offDays?.has(k) ?? false;
           const isSel = selected === k;
           const today = isToday(d);
           const isPayout = payoutDays.has(k);
@@ -95,25 +101,34 @@ export function MonthCalendar({ monthDate, plans, shifts, selected, onSelectDay 
                     ? 'bg-emerald-500/10'
                     : planned > 0
                       ? 'bg-ink-800'
-                      : 'bg-ink-900/40',
+                      : auto && !off
+                        ? 'bg-brand-500/5'
+                        : 'bg-ink-900/40',
                 inMonth ? '' : 'opacity-30',
               ].join(' ')}
             >
               <span
                 className={[
                   'text-sm tabular',
-                  today ? 'font-bold text-brand-400' : 'text-slate-200',
+                  off
+                    ? 'line-through text-slate-500'
+                    : today
+                      ? 'font-bold text-brand-400'
+                      : 'text-slate-200',
                 ].join(' ')}
               >
                 {format(d, 'd')}
               </span>
               {/* Маркеры */}
-              <div className="flex items-center gap-0.5 h-1.5 mt-0.5">
+              <div className="flex items-center gap-0.5 mt-0.5 min-h-[10px]">
                 {worked > 0 && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
-                {pm.manual > 0 && <span className="h-1.5 w-1.5 rounded-full bg-brand-400" />}
-                {pm.auto > 0 && (
-                  <span className="h-1.5 w-1.5 rounded-full border border-brand-400" />
+                {planned > 0 && <span className="h-1.5 w-1.5 rounded-full bg-brand-400" />}
+                {auto && !off && (
+                  <span className="text-[9px] leading-none text-brand-400 tabular">
+                    {auto.hours}ч
+                  </span>
                 )}
+                {off && <span className="text-[9px] leading-none">🚫</span>}
               </div>
               {isPayout && (
                 <span className="absolute top-0.5 right-1 text-[9px] leading-none" title="Выплата Wolt">
@@ -134,9 +149,10 @@ export function MonthCalendar({ monthDate, plans, shifts, selected, onSelectDay 
           <span className="h-1.5 w-1.5 rounded-full bg-brand-400" /> план
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-1.5 w-1.5 rounded-full border border-brand-400" /> под цель
+          <span className="text-brand-400">Nч</span> под цель
         </span>
-        <span className="flex items-center gap-1">💰 выплата Wolt</span>
+        <span className="flex items-center gap-1">🚫 выходной</span>
+        <span className="flex items-center gap-1">💰 выплата</span>
       </div>
     </div>
   );
