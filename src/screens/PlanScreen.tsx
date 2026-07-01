@@ -370,7 +370,7 @@ function TargetEditor({
     <Card className="space-y-3">
       <label className="block">
         <span className="text-sm text-slate-300">
-          Цель на <span className="capitalize">{monthName}</span> по базе (без чаевых), ₪
+          Цель на <span className="capitalize">{monthName}</span> с чаевыми (как в Wolt), ₪
         </span>
         <input
           type="number"

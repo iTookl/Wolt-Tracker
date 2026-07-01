@@ -9,7 +9,7 @@ import {
 } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import type { PlannedShift, Shift } from '../types';
-import { activeHours, plannedRange } from './time';
+import { activeHours, plannedRange, totalEarnings } from './time';
 import { newId } from './id';
 import { payWeekOf, shiftPayWeek } from './payout';
 
@@ -17,7 +17,7 @@ import { payWeekOf, shiftPayWeek } from './payout';
  * Логика целей по заработку и авто-планировщик графика.
  *
  * Ключевые решения (согласованы с пользователем):
- *  - В прогресс идёт ТОЛЬКО база (`shift.earnings`), без чаевых.
+ *  - В прогресс и ставки идёт база+чаевые (`totalEarnings`) — как показывает Wolt.
  *  - Потолок 6 ч на день (`MAX_HOURS_PER_DAY`), работать можно в любой день недели.
  *  - Стратегия «максимум денег»: сильные дни грузим первыми на полный потолок,
  *    пока цель не закрыта; последний нужный день остаётся полным (допускаем
@@ -36,9 +36,9 @@ const WEEKDAYS = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
 const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 
-/** Учитываем смену в статистике базы только если есть введённый базовый заработок. */
+/** Учитываем смену, если есть введённый заработок (база и/или чаевые). */
 function hasBase(s: Shift): boolean {
-  return s.status === 'completed' && !!s.endedAt && s.earnings != null;
+  return s.status === 'completed' && !!s.endedAt && totalEarnings(s) != null;
 }
 
 export interface WeekdayStat {
@@ -64,7 +64,7 @@ export function weekdayStats(shifts: Shift[]): WeekdayStat[] {
     const d = new Date(s.startedAt);
     const key = dayKey(d);
     const e = perDay.get(key) ?? { weekday: d.getDay(), base: 0, hours: 0 };
-    e.base += s.earnings as number;
+    e.base += totalEarnings(s) ?? 0;
     e.hours += h;
     perDay.set(key, e);
   }
@@ -99,7 +99,7 @@ export function overallBaseRate(shifts: Shift[]): number | null {
     if (!hasBase(s)) continue;
     const h = activeHours(s);
     if (h <= 0) continue;
-    base += s.earnings as number;
+    base += totalEarnings(s) ?? 0;
     hours += h;
   }
   return hours > 0 ? base / hours : null;
@@ -397,7 +397,7 @@ export function buildMonthPlan(
     const t = new Date(s.startedAt).getTime();
     if (!inMonth(t)) continue;
     workedDays.add(isoKey(new Date(s.startedAt)));
-    if (s.earnings != null) earned += s.earnings;
+    earned += totalEarnings(s) ?? 0;
   }
 
   // Ручные планы месяца (не авто).
@@ -529,9 +529,11 @@ export function buildMonthPlan(
       }
       let earnedW = 0;
       for (const s of shifts) {
-        if (s.status !== 'completed' || s.earnings == null) continue;
+        if (s.status !== 'completed') continue;
+        const e = totalEarnings(s);
+        if (e == null) continue;
         const t = new Date(s.startedAt).getTime();
-        if (t >= cs && t <= ce) earnedW += s.earnings;
+        if (t >= cs && t <= ce) earnedW += e;
       }
       weeks.push({
         label: weekRangeLabel(new Date(cs), new Date(ce)),
