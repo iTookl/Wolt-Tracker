@@ -2,8 +2,8 @@ import {
   addDays,
   endOfDay,
   format,
-  isMonday,
-  nextMonday,
+  isTuesday,
+  nextTuesday,
   startOfDay,
   subDays,
 } from 'date-fns';
@@ -12,32 +12,33 @@ import { ru } from 'date-fns/locale';
 /**
  * Расчётный период выплаты Wolt.
  *
- * Деньги приходят каждую СРЕДУ. Одна выплата покрывает смены со вторника
- * по следующий ПОНЕДЕЛЬНИК включительно — т.е. интервал (понедельник, понедельник].
+ * Деньги приходят каждую СРЕДУ. Неделя заканчивается ВТОРНИКОМ, и заработок за
+ * вторник падает в выплату уже на следующий день — в среду. Значит период =
+ * СРЕДА…ВТОРНИК включительно (7 дней), выплата = среда сразу после вторника.
  *
  * Пример:
- *   смены 8–15 июня (вкл. Пн 15) ⇒ 💰 Ср 17.6
- *   смены 15–22 июня (вкл. Пн 22) ⇒ 💰 Ср 24.6
+ *   смены 1–7 июля (ср 1 … вт 7) ⇒ 💰 Ср 8.7
+ *   смены 8–14 июля (ср 8 … вт 14) ⇒ 💰 Ср 15.7
  */
 
 export interface PayWeek {
-  start: Date; // вторник 00:00 (включительно) — для фильтрации смен
-  end: Date; // понедельник 23:59:59 (включительно)
-  paidOn: Date; // среда — день прихода денег
+  start: Date; // среда 00:00 (включительно) — для фильтрации смен
+  end: Date; // вторник 23:59:59 (включительно)
+  paidOn: Date; // среда — день прихода денег (на следующий день после вторника)
 }
 
-/** Понедельник, которым закрывается период, содержащий дату `d` (включительно). */
-function closingMonday(d: Date): Date {
+/** Вторник, которым закрывается период, содержащий дату `d` (включительно). */
+function closingTuesday(d: Date): Date {
   const day = startOfDay(d);
-  return isMonday(day) ? day : nextMonday(day);
+  return isTuesday(day) ? day : nextTuesday(day);
 }
 
 /** Расчётный период, в который попадает дата `d`. */
 export function payWeekOf(d: Date): PayWeek {
-  const endMon = closingMonday(d);
-  const start = startOfDay(subDays(endMon, 6)); // вторник = понедельник − 6 дней
-  const end = endOfDay(endMon);
-  const paidOn = startOfDay(addDays(endMon, 2)); // среда после закрытия
+  const endTue = closingTuesday(d);
+  const start = startOfDay(subDays(endTue, 6)); // среда = вторник − 6 дней
+  const end = endOfDay(endTue); // вторник включительно
+  const paidOn = startOfDay(addDays(endTue, 1)); // среда — на следующий день
   return { start, end, paidOn };
 }
 
@@ -51,30 +52,15 @@ export function isInPayWeek(iso: string, week: PayWeek): boolean {
 }
 
 /**
- * Заголовок периода по краям-понедельникам, как считает Wolt: "8–15 июн.".
- * Конец = закрывающий понедельник (день, когда видно сумму), начало = он минус 7 дней.
+ * Заголовок расчётной недели по её краям: среда → вторник, «1–7 июл.».
+ * Деньги за неделю приходят на следующий день после конца — см. `week.paidOn`.
  */
 export function payWeekLabel(week: PayWeek): string {
-  const endMon = startOfDay(week.end);
-  const startMon = subDays(endMon, 7);
-  const sameMonth = startMon.getMonth() === endMon.getMonth();
+  const a = startOfDay(week.start); // среда
+  const b = startOfDay(week.end); // вторник
+  const sameMonth = a.getMonth() === b.getMonth();
   if (sameMonth) {
-    return `${format(startMon, 'd')}–${format(endMon, 'd MMM', { locale: ru })}`;
+    return `${format(a, 'd')}–${format(b, 'd MMM', { locale: ru })}`;
   }
-  return `${format(startMon, 'd MMM', { locale: ru })} – ${format(endMon, 'd MMM', { locale: ru })}`;
-}
-
-/**
- * Подпись недели для экрана «Цель» по краям-вторникам: начало недели (вторник) →
- * вторник следующей недели: «23–30 июн.», далее «30 июн – 7 июл.». В отличие от
- * `payWeekLabel` (края-понедельники, как в выписке Wolt).
- */
-export function payWeekGoalLabel(week: PayWeek): string {
-  const start = startOfDay(week.start); // вторник — начало недели
-  const next = startOfDay(addDays(week.start, 7)); // вторник следующей недели
-  const sameMonth = start.getMonth() === next.getMonth();
-  if (sameMonth) {
-    return `${format(start, 'd')}–${format(next, 'd MMM', { locale: ru })}`;
-  }
-  return `${format(start, 'd MMM', { locale: ru })} – ${format(next, 'd MMM', { locale: ru })}`;
+  return `${format(a, 'd MMM', { locale: ru })} – ${format(b, 'd MMM', { locale: ru })}`;
 }
