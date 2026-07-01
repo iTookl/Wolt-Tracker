@@ -6,12 +6,13 @@ import {
   format,
   startOfDay,
   startOfMonth,
+  subDays,
 } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import type { PlannedShift, Shift } from '../types';
 import { activeHours, plannedRange, totalEarnings } from './time';
 import { newId } from './id';
-import { payWeekOf, shiftPayWeek } from './payout';
+import { payWeekOf, shiftPayWeek, type PayWeek } from './payout';
 
 /**
  * Логика целей по заработку и авто-планировщик графика.
@@ -369,7 +370,32 @@ export interface MonthPlan {
 }
 
 /**
- * План на календарный месяц под одну месячную цель.
+ * Кассовый месяц: набор недель Wolt, чья ВЫПЛАТА (`paidOn`) приходится на этот
+ * календарный месяц. Так «июль» = деньги, полученные в июле; недели целые, без
+ * обрезки по краям месяца (последняя неделя, платящаяся в августе, уедет в август,
+ * а конец июня с выплатой 1 июля войдёт в июль).
+ */
+export function cashMonthPeriod(monthDate: Date): {
+  weeks: PayWeek[];
+  start: number;
+  end: number;
+} {
+  const mStart = startOfMonth(monthDate).getTime();
+  const mEnd = endOfMonth(monthDate).getTime();
+  let w = payWeekOf(subDays(startOfMonth(monthDate), 14));
+  while (w.paidOn.getTime() < mStart) w = shiftPayWeek(w, 1);
+  const weeks: PayWeek[] = [];
+  while (w.paidOn.getTime() <= mEnd) {
+    weeks.push(w);
+    w = shiftPayWeek(w, 1);
+  }
+  const start = weeks.length ? weeks[0].start.getTime() : mStart;
+  const end = weeks.length ? weeks[weeks.length - 1].end.getTime() : mEnd;
+  return { weeks, start, end };
+}
+
+/**
+ * План на кассовый месяц (по приходу денег) под одну месячную цель.
  * Стратегия «максимум денег» с ПЕРЕМЕННЫМИ часами: сильные дни недели длиннее
  * (ближе к PLAN_MAX_HOURS), слабые короче (к PLAN_MIN_HOURS). Дни отработанные,
  * с ручным планом и помеченные выходными — из авто-распределения исключаются.
@@ -384,9 +410,8 @@ export function buildMonthPlan(
   offDays: Set<string>,
   now: Date = new Date()
 ): MonthPlan {
-  const monthStart = startOfMonth(monthDate).getTime();
-  const monthEnd = endOfMonth(monthDate).getTime();
-  const inMonth = (t: number) => t >= monthStart && t <= monthEnd;
+  const { weeks: periodWeeks, start: periodStart, end: periodEnd } = cashMonthPeriod(monthDate);
+  const inMonth = (t: number) => t >= periodStart && t <= periodEnd;
   const todayStart = startOfDay(now).getTime();
   const rateFor = (wd: number) => wstats[wd]?.ratePerHour ?? overall ?? 0;
 
@@ -426,10 +451,10 @@ export function buildMonthPlan(
   const progress = target != null && target > 0 ? Math.min(1, committed / target) : 0;
   const hasHistory = overall != null;
 
-  // Доступные дни: от сегодня (или начала месяца) до конца месяца.
+  // Доступные дни: от сегодня (или начала периода) до конца кассового периода.
   const available: { date: Date; key: string; wd: number; rate: number; low: boolean }[] = [];
-  let cur = startOfDay(now.getTime() > monthStart ? now : new Date(monthStart));
-  while (cur.getTime() <= monthEnd) {
+  let cur = startOfDay(now.getTime() > periodStart ? now : new Date(periodStart));
+  while (cur.getTime() <= periodEnd) {
     const key = isoKey(cur);
     if (!workedDays.has(key) && !manualDays.has(key) && !offDays.has(key)) {
       const wd = cur.getDay();
@@ -519,41 +544,36 @@ export function buildMonthPlan(
       ? available.filter((a) => !autoByDay.has(a.key)).map((a) => a.key)
       : [];
 
-  // Недельная разбивка по расчётным неделям Wolt (Вт→Пн, до выплаты), обрезанная по месяцу.
-  const weeks: WeekBucket[] = [];
-  let w = payWeekOf(new Date(monthStart));
-  while (w.start.getTime() <= monthEnd) {
-    const cs = Math.max(w.start.getTime(), monthStart);
-    const ce = Math.min(w.end.getTime(), monthEnd);
-    if (cs <= ce) {
-      let plannedW = 0;
-      for (const d of autoDays) {
-        const t = d.date.getTime();
-        if (t >= cs && t <= ce) plannedW += d.expected;
-      }
-      for (const [k, exp] of manualExpectedByDay) {
-        const t = new Date(`${k}T00:00`).getTime();
-        if (t >= cs && t <= ce) plannedW += exp;
-      }
-      let earnedW = 0;
-      for (const s of shifts) {
-        if (s.status !== 'completed') continue;
-        const e = totalEarnings(s);
-        if (e == null) continue;
-        const t = new Date(s.startedAt).getTime();
-        if (t >= cs && t <= ce) earnedW += e;
-      }
-      weeks.push({
-        label: weekRangeLabel(new Date(cs), new Date(ce)),
-        start: new Date(cs),
-        end: new Date(ce),
-        paidOn: w.paidOn,
-        planned: Math.round(plannedW),
-        earned: Math.round(earnedW),
-      });
+  // Недельная разбивка = целые недели кассового месяца (по приходу денег), без обрезки.
+  const weeks: WeekBucket[] = periodWeeks.map((pw) => {
+    const cs = pw.start.getTime();
+    const ce = pw.end.getTime();
+    let plannedW = 0;
+    for (const d of autoDays) {
+      const t = d.date.getTime();
+      if (t >= cs && t <= ce) plannedW += d.expected;
     }
-    w = shiftPayWeek(w, 1);
-  }
+    for (const [k, exp] of manualExpectedByDay) {
+      const t = new Date(`${k}T00:00`).getTime();
+      if (t >= cs && t <= ce) plannedW += exp;
+    }
+    let earnedW = 0;
+    for (const s of shifts) {
+      if (s.status !== 'completed') continue;
+      const e = totalEarnings(s);
+      if (e == null) continue;
+      const t = new Date(s.startedAt).getTime();
+      if (t >= cs && t <= ce) earnedW += e;
+    }
+    return {
+      label: weekRangeLabel(pw.start, pw.end),
+      start: pw.start,
+      end: pw.end,
+      paidOn: pw.paidOn,
+      planned: Math.round(plannedW),
+      earned: Math.round(earnedW),
+    };
+  });
 
   const weeksLeft = Math.max(1, weeks.filter((w) => w.end.getTime() >= todayStart).length);
   const perWeekNeed = target != null ? Math.round(remaining / weeksLeft) : 0;
