@@ -3,11 +3,9 @@ import {
   addMonths,
   differenceInCalendarDays,
   endOfMonth,
-  endOfWeek,
   format,
   startOfDay,
   startOfMonth,
-  startOfWeek,
 } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import type { PlannedShift, Shift } from '../types';
@@ -321,7 +319,7 @@ export const PLAN_MAX_HOURS = 9;
 
 const isoKey = (d: Date) => format(d, 'yyyy-MM-dd');
 
-/** Подпись недели (Вс–Сб), пересечённой с месяцем: «29 июн–4 июл», «5–11 июл». */
+/** Подпись отрезка недели, пересечённого с месяцем: «29 июн–4 июл», «5–11 июл». */
 function weekRangeLabel(a: Date, b: Date): string {
   if (a.getMonth() === b.getMonth()) {
     return `${format(a, 'd')}–${format(b, 'd MMM', { locale: ru })}`;
@@ -343,6 +341,7 @@ export interface WeekBucket {
   label: string;
   start: Date; // край, обрезанный по месяцу
   end: Date;
+  paidOn: Date; // среда — когда придут деньги за эту расчётную неделю Wolt
   planned: number; // авто + ручные планы недели, ₪
   earned: number; // факт по базе за неделю, ₪
 }
@@ -487,36 +486,38 @@ export function buildMonthPlan(
     feasible || overall == null || overall <= 0 ? 0 : (remaining - acc) / overall;
   const autoByDay = new Map(autoDays.map((d) => [d.dateKey, d] as const));
 
-  // Недельная разбивка (Вс–Сб), обрезанная по месяцу.
+  // Недельная разбивка по расчётным неделям Wolt (Вт→Пн, до выплаты), обрезанная по месяцу.
   const weeks: WeekBucket[] = [];
-  let ws = startOfWeek(new Date(monthStart), { weekStartsOn: 0 });
-  while (ws.getTime() <= monthEnd) {
-    const we = endOfWeek(ws, { weekStartsOn: 0 });
-    const cs = Math.max(ws.getTime(), monthStart);
-    const ce = Math.min(we.getTime(), monthEnd);
-    let plannedW = 0;
-    for (const d of autoDays) {
-      const t = d.date.getTime();
-      if (t >= cs && t <= ce) plannedW += d.expected;
+  let w = payWeekOf(new Date(monthStart));
+  while (w.start.getTime() <= monthEnd) {
+    const cs = Math.max(w.start.getTime(), monthStart);
+    const ce = Math.min(w.end.getTime(), monthEnd);
+    if (cs <= ce) {
+      let plannedW = 0;
+      for (const d of autoDays) {
+        const t = d.date.getTime();
+        if (t >= cs && t <= ce) plannedW += d.expected;
+      }
+      for (const [k, exp] of manualExpectedByDay) {
+        const t = new Date(`${k}T00:00`).getTime();
+        if (t >= cs && t <= ce) plannedW += exp;
+      }
+      let earnedW = 0;
+      for (const s of shifts) {
+        if (s.status !== 'completed' || s.earnings == null) continue;
+        const t = new Date(s.startedAt).getTime();
+        if (t >= cs && t <= ce) earnedW += s.earnings;
+      }
+      weeks.push({
+        label: weekRangeLabel(new Date(cs), new Date(ce)),
+        start: new Date(cs),
+        end: new Date(ce),
+        paidOn: w.paidOn,
+        planned: Math.round(plannedW),
+        earned: Math.round(earnedW),
+      });
     }
-    for (const [k, exp] of manualExpectedByDay) {
-      const t = new Date(`${k}T00:00`).getTime();
-      if (t >= cs && t <= ce) plannedW += exp;
-    }
-    let earnedW = 0;
-    for (const s of shifts) {
-      if (s.status !== 'completed' || s.earnings == null) continue;
-      const t = new Date(s.startedAt).getTime();
-      if (t >= cs && t <= ce) earnedW += s.earnings;
-    }
-    weeks.push({
-      label: weekRangeLabel(new Date(cs), new Date(ce)),
-      start: new Date(cs),
-      end: new Date(ce),
-      planned: Math.round(plannedW),
-      earned: Math.round(earnedW),
-    });
-    ws = addDays(ws, 7);
+    w = shiftPayWeek(w, 1);
   }
 
   const weeksLeft = Math.max(1, weeks.filter((w) => w.end.getTime() >= todayStart).length);

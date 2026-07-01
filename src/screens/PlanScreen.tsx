@@ -398,7 +398,7 @@ function TargetEditor({
 function WeeksBreakdown({ plan }: { plan: MonthPlan }) {
   return (
     <section className="space-y-1.5">
-      <h2 className="font-semibold text-sm">Недели месяца</h2>
+      <h2 className="font-semibold text-sm">Недели Wolt</h2>
       <Card className="p-0 divide-y divide-white/5">
         {plan.weeks.map((w, i) => {
           const prog =
@@ -412,6 +412,11 @@ function WeeksBreakdown({ plan }: { plan: MonthPlan }) {
                   {formatMoney(w.planned)}
                 </span>
               </div>
+              <div className="flex items-center justify-between mt-0.5">
+                <span className="text-[11px] text-brand-400/80 tabular">
+                  💰 {format(w.paidOn, 'EEE d MMM', { locale: ru })}
+                </span>
+              </div>
               <div className="h-1.5 mt-1 rounded-full bg-ink-800 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-emerald-500"
@@ -423,7 +428,7 @@ function WeeksBreakdown({ plan }: { plan: MonthPlan }) {
         })}
       </Card>
       <p className="text-[11px] text-slate-500">
-        Факт / план по неделям (Вс–Сб). План = авто-график под цель + твои смены.
+        Факт / план по расчётным неделям Wolt (Вт→Пн). 💰 — когда придут деньги за неделю.
       </p>
     </section>
   );
