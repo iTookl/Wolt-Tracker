@@ -29,7 +29,6 @@ function makeDraft(): Shift {
     earnings: null,
     tips: null,
     deliveries: null,
-    vehicle: null,
     note: null,
   };
 }

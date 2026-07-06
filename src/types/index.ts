@@ -1,7 +1,5 @@
 export type ISODate = string; // ISO 8601
 
-export type Vehicle = 'bike' | 'scooter' | 'car';
-
 export interface BreakInterval {
   start: ISODate;
   end: ISODate | null; // null = пауза идёт прямо сейчас
@@ -16,7 +14,6 @@ export interface Shift {
   earnings: number | null; // ₪ базовый заработок, вводится в конце смены
   tips: number | null; // ₪ чаевые, можно вписать позже (в Wolt видны не сразу)
   deliveries: number | null; // опционально
-  vehicle: Vehicle | null;
   note: string | null;
 }
 
@@ -41,6 +38,5 @@ export interface EndShiftInput {
   earnings: number;
   tips?: number | null;
   deliveries?: number | null;
-  vehicle?: Vehicle | null;
   note?: string | null;
 }

@@ -20,7 +20,6 @@ function shift(startedAt: Date, endedAt: Date, total: number | null): Shift {
     earnings: total,
     tips: null,
     deliveries: null,
-    vehicle: null,
     note: null,
   };
 }

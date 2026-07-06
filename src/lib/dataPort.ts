@@ -31,8 +31,6 @@ function csvCell(v: string | number | null): string {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-const VEHICLE_RU: Record<string, string> = { bike: 'вело', scooter: 'скутер', car: 'авто' };
-
 export function buildCsv(shifts: Shift[]): string {
   const header = [
     'Дата',
@@ -45,7 +43,6 @@ export function buildCsv(shifts: Shift[]): string {
     'Итого',
     'Ставка_шек_час',
     'Доставки',
-    'Транспорт',
     'Заметка',
   ];
   const rows = shifts
@@ -67,7 +64,6 @@ export function buildCsv(shifts: Shift[]): string {
         totalEarnings(s) ?? '',
         rate == null ? '' : rate.toFixed(1),
         s.deliveries ?? '',
-        s.vehicle ? VEHICLE_RU[s.vehicle] : '',
         s.note ?? '',
       ]
         .map(csvCell)
@@ -104,7 +100,6 @@ export function parseImport(text: string): ParsedImport {
     earnings: s.earnings ?? null,
     tips: s.tips ?? null,
     deliveries: s.deliveries ?? null,
-    vehicle: s.vehicle ?? null,
     note: s.note ?? null,
   }));
   if (shifts.some((s) => !s.id || !s.startedAt)) {

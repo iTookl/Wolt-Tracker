@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useAppState } from '../state/AppState';
-import type { EndShiftInput, Shift, Vehicle } from '../types';
+import type { EndShiftInput, Shift } from '../types';
 import { newId } from '../lib/id';
 import { isPaused } from '../lib/time';
 
@@ -12,7 +12,7 @@ export function useActiveShift() {
   const { shifts, setShifts } = useAppState();
   const active = useMemo(() => shifts.find((s) => s.status === 'active') ?? null, [shifts]);
 
-  function startShift(vehicle: Vehicle | null = null) {
+  function startShift() {
     if (active) return;
     const now = new Date();
     const nowIso = now.toISOString();
@@ -41,7 +41,6 @@ export function useActiveShift() {
                 endedAt: null,
                 // закрытый перерыв = промежуток с конца прошлого периода до сейчас
                 breaks: [...s.breaks, { start: todayLast.endedAt as string, end: nowIso }],
-                vehicle: vehicle ?? s.vehicle,
               }
             : s
         )
@@ -58,7 +57,6 @@ export function useActiveShift() {
       earnings: null,
       tips: null,
       deliveries: null,
-      vehicle,
       note: null,
     };
     setShifts((prev) => [...prev, shift]);
@@ -100,7 +98,6 @@ export function useActiveShift() {
           earnings: input.earnings,
           tips: input.tips ?? null,
           deliveries: input.deliveries ?? null,
-          vehicle: input.vehicle ?? s.vehicle,
           note: input.note ?? null,
         };
       })

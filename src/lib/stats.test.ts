@@ -18,7 +18,6 @@ function shift(
     earnings,
     tips,
     deliveries: null,
-    vehicle: null,
     note: null,
   };
 }

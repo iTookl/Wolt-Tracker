@@ -36,7 +36,6 @@ function makeShift(
     earnings: null,
     tips: null,
     deliveries: null,
-    vehicle: null,
     note: null,
     ...patch,
   };

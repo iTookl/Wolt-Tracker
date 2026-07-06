@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import type { EndShiftInput, Shift, Vehicle } from '../types';
+import type { EndShiftInput, Shift } from '../types';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { activeMs, formatDuration, MS_PER_HOUR } from '../lib/time';
 import { formatMoney, formatRate } from '../lib/money';
-import { VehiclePicker } from './VehiclePicker';
 
 interface Props {
   open: boolean;
@@ -25,7 +24,6 @@ export function EndShiftModal({ open, shift, onClose, onConfirm }: Props) {
   const [earnings, setEarnings] = useState(shift.earnings?.toString() ?? '');
   const [tips, setTips] = useState(shift.tips?.toString() ?? '');
   const [deliveries, setDeliveries] = useState(shift.deliveries?.toString() ?? '');
-  const [vehicle, setVehicle] = useState<Vehicle | null>(shift.vehicle);
   const [note, setNote] = useState(shift.note ?? '');
   const [result, setResult] = useState<Result | null>(null);
 
@@ -50,7 +48,6 @@ export function EndShiftModal({ open, shift, onClose, onConfirm }: Props) {
         earnings: earningsNum,
         tips: Number.isFinite(tipsNum as number) ? tipsNum : null,
         deliveries: Number.isFinite(deliveriesNum as number) ? deliveriesNum : null,
-        vehicle,
         note: note.trim() || null,
       },
       endAt
@@ -136,11 +133,6 @@ export function EndShiftModal({ open, shift, onClose, onConfirm }: Props) {
               className="mt-1 w-full rounded-xl bg-ink-800 border border-white/10 px-4 py-3 outline-none focus:border-brand-500"
             />
           </label>
-
-          <div>
-            <span className="text-sm text-slate-300">Транспорт</span>
-            <VehiclePicker value={vehicle} onChange={setVehicle} className="mt-1" />
-          </div>
 
           <label className="block">
             <span className="text-sm text-slate-300">Заметка (необязательно)</span>

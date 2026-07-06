@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import type { Shift, Vehicle } from '../types';
+import type { Shift } from '../types';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
-import { VehiclePicker } from './VehiclePicker';
 import {
   formatDuration,
   MS_PER_HOUR,
@@ -42,7 +41,6 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
   const [earnings, setEarnings] = useState(shift.earnings?.toString() ?? '');
   const [tips, setTips] = useState(shift.tips?.toString() ?? '');
   const [deliveries, setDeliveries] = useState(shift.deliveries?.toString() ?? '');
-  const [vehicle, setVehicle] = useState<Vehicle | null>(shift.vehicle);
   const [note, setNote] = useState(shift.note ?? '');
 
   const validSegs = segments.filter(segOk);
@@ -92,7 +90,6 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
       earnings: earningsNum,
       tips: tipsNum,
       deliveries: deliveries.trim() === '' ? null : Number(deliveries),
-      vehicle,
       note: note.trim() || null,
     });
     onClose();
@@ -210,11 +207,6 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
             className="mt-1 w-full rounded-xl bg-ink-800 border border-white/10 px-4 py-3 outline-none focus:border-brand-500"
           />
         </label>
-
-        <div>
-          <span className="text-sm text-slate-300">Транспорт</span>
-          <VehiclePicker value={vehicle} onChange={setVehicle} className="mt-1" />
-        </div>
 
         <label className="block">
           <span className="text-sm text-slate-300">Заметка</span>

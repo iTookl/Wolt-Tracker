@@ -9,16 +9,12 @@ import {
 } from '../lib/time';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { VehiclePicker } from '../components/VehiclePicker';
 import { EndShiftModal } from '../components/EndShiftModal';
-import { vehicleLabel } from '../components/VehiclePicker';
-import type { Vehicle } from '../types';
 import { format } from 'date-fns';
 
 export function HomeScreen() {
   const { active, paused, startShift, togglePause, endShift, cancelShift } = useActiveShift();
   const [endOpen, setEndOpen] = useState(false);
-  const [startVehicle, setStartVehicle] = useState<Vehicle | null>(null);
 
   // Тикаем, только когда есть активная смена и она не на паузе.
   const now = useNow(!!active && !paused);
@@ -31,17 +27,7 @@ export function HomeScreen() {
           <p className="text-slate-400 mt-1">Нажми, чтобы засечь время точно.</p>
         </div>
 
-        <div>
-          <p className="text-sm text-slate-400 mb-2 text-center">Транспорт (по желанию)</p>
-          <VehiclePicker value={startVehicle} onChange={setStartVehicle} />
-        </div>
-
-        <Button
-          size="xl"
-          full
-          onClick={() => startShift(startVehicle)}
-          className="text-3xl"
-        >
+        <Button size="xl" full onClick={() => startShift()} className="text-3xl">
           ▶ Начать смену
         </Button>
       </div>
@@ -66,7 +52,6 @@ export function HomeScreen() {
         </div>
         <div className="text-slate-400 text-sm mt-1">
           Начало: {format(new Date(active.startedAt), 'HH:mm')}
-          {active.vehicle ? ` · ${vehicleLabel[active.vehicle]}` : ''}
         </div>
       </div>
 

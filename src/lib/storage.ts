@@ -40,11 +40,18 @@ function normalizeGoals(g: Partial<Goals> | null | undefined): Goals {
 /** Точка для будущих миграций схемы (по data.version). */
 function migrate(data: Partial<PersistShape> | null): PersistShape {
   if (!data) return empty();
-  // Нормализуем форму и добавляем поля, появившиеся позже (например tips).
+  // Нормализуем форму: добавляем поля, появившиеся позже (tips), и отбрасываем
+  // удалённые (vehicle) — поля перечислены явно, старые лишние ключи не протекают.
   const shifts = (Array.isArray(data.shifts) ? data.shifts : []).map((s) => ({
-    ...s,
-    tips: s.tips ?? null,
+    id: s.id,
+    status: s.status,
+    startedAt: s.startedAt,
+    endedAt: s.endedAt ?? null,
     breaks: Array.isArray(s.breaks) ? s.breaks : [],
+    earnings: s.earnings ?? null,
+    tips: s.tips ?? null,
+    deliveries: s.deliveries ?? null,
+    note: s.note ?? null,
   }));
   return {
     version: SCHEMA_VERSION,
