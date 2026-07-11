@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { PlannedShift } from '../types';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
+import { useI18n } from '../i18n/I18nProvider';
 
 interface Props {
   open: boolean;
@@ -20,6 +21,7 @@ export function PlannedShiftModal({
   onSave,
   onDelete,
 }: Props) {
+  const { t } = useI18n();
   const [date, setDate] = useState(planned.date);
   const [start, setStart] = useState(planned.plannedStart);
   const [end, setEnd] = useState(planned.plannedEnd);
@@ -39,10 +41,10 @@ export function PlannedShiftModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={isNew ? 'Новый план' : 'План смены'}>
+    <Modal open={open} onClose={onClose} title={isNew ? t.plannedModal.newTitle : t.plannedModal.title}>
       <div className="space-y-4">
         <label className="block">
-          <span className="text-sm text-slate-300">Дата</span>
+          <span className="text-sm text-slate-300">{t.plannedModal.date}</span>
           <input
             type="date"
             value={date}
@@ -53,7 +55,7 @@ export function PlannedShiftModal({
 
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
-            <span className="text-sm text-slate-300">Начало</span>
+            <span className="text-sm text-slate-300">{t.plannedModal.start}</span>
             <input
               type="time"
               value={start}
@@ -62,7 +64,7 @@ export function PlannedShiftModal({
             />
           </label>
           <label className="block">
-            <span className="text-sm text-slate-300">Конец</span>
+            <span className="text-sm text-slate-300">{t.plannedModal.end}</span>
             <input
               type="time"
               value={end}
@@ -73,20 +75,20 @@ export function PlannedShiftModal({
         </div>
 
         <label className="block">
-          <span className="text-sm text-slate-300">Цель по заработку, ₪ (необязательно)</span>
+          <span className="text-sm text-slate-300">{t.plannedModal.targetLabel}</span>
           <input
             type="number"
             inputMode="decimal"
             value={target}
             onChange={(e) => setTarget(e.target.value)}
-            placeholder="например, 250"
+            placeholder={t.plannedModal.targetPlaceholder}
             className="mt-1 w-full rounded-xl bg-ink-800 border border-white/10 px-4 py-3 text-lg font-semibold tabular outline-none focus:border-brand-500"
           />
         </label>
 
         <div className="flex gap-3 pt-1">
           <Button variant="subtle" size="lg" className="flex-1" onClick={onClose}>
-            {isNew ? 'Отмена' : 'Закрыть'}
+            {isNew ? t.common.cancel : t.common.close}
           </Button>
           <Button
             variant="primary"
@@ -95,21 +97,21 @@ export function PlannedShiftModal({
             disabled={!valid}
             onClick={handleSave}
           >
-            {isNew ? 'Добавить' : 'Сохранить'}
+            {isNew ? t.common.add : t.common.save}
           </Button>
         </div>
 
         {!isNew && (
           <button
             onClick={() => {
-              if (confirm('Удалить этот план?')) {
+              if (confirm(t.plannedModal.deleteConfirm)) {
                 onDelete();
                 onClose();
               }
             }}
             className="w-full text-center text-sm text-rose-400/80 hover:text-rose-400 py-2"
           >
-            Удалить план
+            {t.plannedModal.deletePlan}
           </button>
         )}
       </div>

@@ -9,6 +9,8 @@ import {
 } from 'recharts';
 import type { SlotStat } from '../lib/stats';
 import { LOW_DATA_THRESHOLD } from '../lib/stats';
+import { useI18n } from '../i18n/I18nProvider';
+import type { Translations } from '../i18n/dict';
 
 interface Props {
   data: SlotStat[];
@@ -20,11 +22,14 @@ const MUTED = '#475569'; // slate-600 — для слотов с малым чи
 interface TooltipProps {
   active?: boolean;
   payload?: { payload: SlotStat }[];
+  t?: Translations;
+  lang?: 'ru' | 'en';
 }
 
-function ChartTooltip({ active, payload }: TooltipProps) {
-  if (!active || !payload?.length) return null;
+function ChartTooltip({ active, payload, t, lang }: TooltipProps) {
+  if (!active || !payload?.length || !t) return null;
   const s = payload[0].payload;
+  const unit = lang === 'en' ? '₪/h' : '₪/ч';
   return (
     <div className="rounded-lg bg-ink-800 border border-white/10 px-3 py-2 text-sm shadow-xl">
       <div className="font-semibold">
@@ -32,17 +37,18 @@ function ChartTooltip({ active, payload }: TooltipProps) {
         {s.hint ? <span className="text-slate-400 font-normal"> · {s.hint}</span> : ''}
       </div>
       <div className="tabular text-brand-400 font-bold">
-        {s.rate == null ? 'нет данных' : `${Math.round(s.rate)} ₪/ч`}
+        {s.rate == null ? t.stats.noData : `${Math.round(s.rate)} ${unit}`}
       </div>
       <div className="text-xs text-slate-400 tabular">
-        {s.shiftCount} {s.shiftCount === 1 ? 'смена' : 'смен'}
-        {s.hours > 0 ? ` · ${s.hours.toFixed(1)} ч` : ''}
+        {t.stats.shiftsCount(s.shiftCount)}
+        {s.hours > 0 ? ` · ${s.hours.toFixed(1)} ${t.units.hour}` : ''}
       </div>
     </div>
   );
 }
 
 export function SlotBarChart({ data }: Props) {
+  const { t, lang } = useI18n();
   const chartData = data.map((d) => ({ ...d, value: d.rate ?? 0 }));
 
   return (
@@ -60,7 +66,10 @@ export function SlotBarChart({ data }: Props) {
           tickLine={false}
           width={36}
         />
-        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Tooltip
+          content={<ChartTooltip t={t} lang={lang} />}
+          cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+        />
         <Bar dataKey="value" radius={[6, 6, 0, 0]} isAnimationActive={false}>
           {chartData.map((d) => (
             <Cell

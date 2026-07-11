@@ -116,7 +116,8 @@ export function computeStats(shifts: Shift[]): StatsResult {
     const end = new Date(s.endedAt);
 
     // День недели: смену целиком относим к дню её начала.
-    bump(weekdayAcc, WEEKDAYS[start.getDay()], aHours, earned);
+    // Ключ — номер дня (0..6, стабилен для i18n), метка остаётся для фолбэка.
+    bump(weekdayAcc, String(start.getDay()), aHours, earned);
 
     // Время суток: длинная смена делится между слотами пропорционально
     // календарному времени в каждом часе (а чистые часы и заработок — по той же доле).
@@ -146,7 +147,7 @@ export function computeStats(shifts: Shift[]): StatsResult {
 
   return {
     byWeekday: finalize(
-      WEEKDAYS.map((label) => ({ key: label, label })),
+      WEEKDAYS.map((label, wd) => ({ key: String(wd), label })),
       weekdayAcc
     ),
     byTimeOfDay: finalize(TIME_SLOTS, slotAcc),

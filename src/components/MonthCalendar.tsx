@@ -11,9 +11,7 @@ import {
   startOfWeek,
 } from 'date-fns';
 import { payWeekOf } from '../lib/payout';
-
-// Неделя начинается с воскресенья (Израиль).
-const WEEK_DAYS = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+import { useI18n } from '../i18n/I18nProvider';
 
 const dayKey = (d: Date) => format(d, 'yyyy-MM-dd');
 
@@ -38,6 +36,7 @@ export function MonthCalendar({
   selected,
   onSelectDay,
 }: Props) {
+  const { t } = useI18n();
   const days = useMemo(() => {
     const start = startOfWeek(startOfMonth(monthDate), { weekStartsOn: 0 });
     const end = endOfWeek(endOfMonth(monthDate), { weekStartsOn: 0 });
@@ -72,8 +71,8 @@ export function MonthCalendar({
   return (
     <div>
       <div className="grid grid-cols-7 mb-1">
-        {WEEK_DAYS.map((d) => (
-          <div key={d} className="text-center text-[11px] text-slate-500 font-medium py-1">
+        {t.weekdays.map((d, i) => (
+          <div key={i} className="text-center text-[11px] text-slate-500 font-medium py-1">
             {d}
           </div>
         ))}
@@ -128,14 +127,14 @@ export function MonthCalendar({
                 {planned > 0 && <span className="h-1.5 w-1.5 rounded-full bg-brand-400" />}
                 {auto && !off && (
                   <span className="text-[9px] leading-none text-brand-400 tabular">
-                    {auto.hours}ч
+                    {auto.hours}{t.units.hour}
                   </span>
                 )}
                 {off && <span className="text-[9px] leading-none">🚫</span>}
                 {rest && <span className="text-[9px] leading-none">💤</span>}
               </div>
               {isPayout && (
-                <span className="absolute top-0.5 right-1 text-[9px] leading-none" title="Выплата Wolt">
+                <span className="absolute top-0.5 right-1 text-[9px] leading-none" title={t.calendar.payoutTitle}>
                   💰
                 </span>
               )}
@@ -147,17 +146,17 @@ export function MonthCalendar({
       {/* Легенда */}
       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-[11px] text-slate-400">
         <span className="flex items-center gap-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> отработано
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> {t.calendar.worked}
         </span>
         <span className="flex items-center gap-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-brand-400" /> план
+          <span className="h-1.5 w-1.5 rounded-full bg-brand-400" /> {t.calendar.plan}
         </span>
         <span className="flex items-center gap-1">
-          <span className="text-brand-400">Nч</span> под цель
+          <span className="text-brand-400">N{t.units.hour}</span> {t.calendar.underGoal}
         </span>
-        <span className="flex items-center gap-1">🚫 выходной</span>
-        <span className="flex items-center gap-1">💤 можно отдохнуть</span>
-        <span className="flex items-center gap-1">💰 выплата</span>
+        <span className="flex items-center gap-1">🚫 {t.calendar.off}</span>
+        <span className="flex items-center gap-1">💤 {t.calendar.canRest}</span>
+        <span className="flex items-center gap-1">💰 {t.calendar.payout}</span>
       </div>
     </div>
   );

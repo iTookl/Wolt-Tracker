@@ -5,6 +5,7 @@ import {
   startOfDay,
   startOfMonth,
   subDays,
+  type Locale,
 } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import type { PlannedShift, Shift } from '../types';
@@ -110,11 +111,11 @@ export const PLAN_ABS_MAX_HOURS = 16;
 const isoKey = (d: Date) => format(d, 'yyyy-MM-dd');
 
 /** Подпись отрезка недели, пересечённого с месяцем: «29 июн–4 июл», «5–11 июл». */
-function weekRangeLabel(a: Date, b: Date): string {
+function weekRangeLabel(a: Date, b: Date, locale: Locale = ru): string {
   if (a.getMonth() === b.getMonth()) {
-    return `${format(a, 'd')}–${format(b, 'd MMM', { locale: ru })}`;
+    return `${format(a, 'd')}–${format(b, 'd MMM', { locale })}`;
   }
-  return `${format(a, 'd MMM', { locale: ru })} – ${format(b, 'd MMM', { locale: ru })}`;
+  return `${format(a, 'd MMM', { locale })} – ${format(b, 'd MMM', { locale })}`;
 }
 
 export interface MonthPlanDay {
@@ -195,7 +196,8 @@ export function buildMonthPlan(
   wstats: WeekdayStat[],
   overall: number | null,
   offDays: Set<string>,
-  now: Date = new Date()
+  now: Date = new Date(),
+  locale: Locale = ru
 ): MonthPlan {
   const { weeks: periodWeeks, start: periodStart, end: periodEnd } = cashMonthPeriod(monthDate);
   const inMonth = (t: number) => t >= periodStart && t <= periodEnd;
@@ -353,7 +355,7 @@ export function buildMonthPlan(
       if (t >= cs && t <= ce) earnedW += e;
     }
     return {
-      label: weekRangeLabel(pw.start, pw.end),
+      label: weekRangeLabel(pw.start, pw.end, locale),
       start: pw.start,
       end: pw.end,
       paidOn: pw.paidOn,

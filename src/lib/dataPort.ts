@@ -1,4 +1,5 @@
 import type { Goals, PlannedShift, Shift } from '../types';
+import type { Translations } from '../i18n/dict';
 import { activeHours, breaksMs, ratePerHour, totalEarnings } from './time';
 import { format } from 'date-fns';
 
@@ -31,19 +32,20 @@ function csvCell(v: string | number | null): string {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-export function buildCsv(shifts: Shift[]): string {
+export function buildCsv(shifts: Shift[], t: Translations): string {
+  const c = t.csv;
   const header = [
-    'Дата',
-    'Начало',
-    'Конец',
-    'Перерывы_мин',
-    'Чистые_часы',
-    'Заработок',
-    'Чаевые',
-    'Итого',
-    'Ставка_шек_час',
-    'Доставки',
-    'Заметка',
+    c.date,
+    c.start,
+    c.end,
+    c.breaksMin,
+    c.netHours,
+    c.earnings,
+    c.tips,
+    c.total,
+    c.ratePerHour,
+    c.deliveries,
+    c.note,
   ];
   const rows = shifts
     .filter((s) => s.status === 'completed' && s.endedAt)
@@ -80,16 +82,16 @@ export interface ParsedImport {
 }
 
 /** Разбор и валидация импортируемого JSON. Бросает ошибку при неверном формате. */
-export function parseImport(text: string): ParsedImport {
+export function parseImport(text: string, t: Translations): ParsedImport {
   let data: unknown;
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error('Файл не является корректным JSON.');
+    throw new Error(t.errors.notJson);
   }
   const obj = data as Partial<ExportBundle>;
   if (!obj || !Array.isArray(obj.shifts)) {
-    throw new Error('В файле нет списка смен (shifts).');
+    throw new Error(t.errors.noShifts);
   }
   const shifts: Shift[] = obj.shifts.map((s) => ({
     id: s.id,
@@ -103,7 +105,7 @@ export function parseImport(text: string): ParsedImport {
     note: s.note ?? null,
   }));
   if (shifts.some((s) => !s.id || !s.startedAt)) {
-    throw new Error('Некоторые смены повреждены (нет id или времени начала).');
+    throw new Error(t.errors.corrupt);
   }
   const planned: PlannedShift[] = Array.isArray(obj.planned)
     ? obj.planned.map((p) => ({

@@ -12,16 +12,10 @@ import {
   startOfMonth,
   endOfMonth,
 } from 'date-fns';
-import { ru } from 'date-fns/locale';
+import { useI18n } from '../i18n/I18nProvider';
 import type { Shift } from '../types';
 
 type Period = 'week' | 'month' | 'all';
-
-const periods: { id: Period; label: string }[] = [
-  { id: 'week', label: 'Неделя' },
-  { id: 'month', label: 'Месяц' },
-  { id: 'all', label: 'Всё время' },
-];
 
 function agg(shifts: Shift[]) {
   const totalHours = shifts.reduce((sum, s) => sum + activeHours(s), 0);
@@ -35,8 +29,14 @@ function agg(shifts: Shift[]) {
 }
 
 export function SummaryScreen() {
+  const { t, locale, lang } = useI18n();
   const { completed } = useShifts();
   const [period, setPeriod] = useState<Period>('week');
+  const periods: { id: Period; label: string }[] = [
+    { id: 'week', label: t.summary.week },
+    { id: 'month', label: t.summary.month },
+    { id: 'all', label: t.summary.all },
+  ];
   const [weekOffset, setWeekOffset] = useState(0); // 0 = текущая расчётная неделя
   const [monthOffset, setMonthOffset] = useState(0);
 
@@ -76,11 +76,11 @@ export function SummaryScreen() {
         const amount = completed
           .filter((s) => isInPayWeek(s.startedAt, w))
           .reduce((sum, s) => sum + (totalEarnings(s) ?? 0), 0);
-        list.push({ paidOn: w.paidOn, label: payWeekLabel(w), amount });
+        list.push({ paidOn: w.paidOn, label: payWeekLabel(w, locale), amount });
       }
     }
     return list.sort((a, b) => a.paidOn.getTime() - b.paidOn.getTime());
-  }, [period, monthDate, completed]);
+  }, [period, monthDate, completed, locale]);
 
   const today = new Date();
   const isCurrentWeek = isInPayWeek(today.toISOString(), week);
@@ -114,9 +114,9 @@ export function SummaryScreen() {
             ‹
           </button>
           <div className="text-center">
-            <div className="font-semibold">{payWeekLabel(week)}</div>
+            <div className="font-semibold">{payWeekLabel(week, locale)}</div>
             <div className="text-xs text-brand-400">
-              💰 выплата {format(week.paidOn, 'EEEE d MMM', { locale: ru })}
+              {t.summary.payoutOn(format(week.paidOn, 'EEEE d MMM', { locale }))}
             </div>
           </div>
           <button
@@ -138,7 +138,7 @@ export function SummaryScreen() {
             ‹
           </button>
           <div className="font-semibold capitalize">
-            {format(monthDate, 'LLLL yyyy', { locale: ru })}
+            {format(monthDate, 'LLLL yyyy', { locale })}
           </div>
           <button
             onClick={() => setMonthOffset((o) => Math.min(0, o + 1))}
@@ -154,36 +154,36 @@ export function SummaryScreen() {
         label={
           period === 'week'
             ? isCurrentWeek
-              ? 'Средний ₪/ч · текущая неделя'
-              : 'Средний ₪/ч за неделю'
-            : 'Средний заработок в час'
+              ? t.summary.avgCurrentWeek
+              : t.summary.avgWeek
+            : t.summary.avgRate
         }
-        value={formatRate(stats.avgRate)}
-        hint={`на основе ${stats.count} ${pluralShifts(stats.count)}`}
+        value={formatRate(stats.avgRate, lang)}
+        hint={t.summary.basedOnShifts(stats.count)}
         accent
       />
 
       <div className="grid grid-cols-2 gap-3">
         <StatCard
-          label="Всего часов"
+          label={t.summary.totalHours}
           value={stats.totalHours.toLocaleString('he-IL', { maximumFractionDigits: 1 })}
         />
         <StatCard
-          label={period === 'week' ? 'К выплате' : 'Всего заработано'}
+          label={period === 'week' ? t.summary.toPayout : t.summary.totalEarned}
           value={formatMoney(stats.totalEarnings)}
         />
       </div>
 
       {period === 'week' && (
         <p className="text-xs text-slate-500">
-          Расчётная неделя Wolt: Ср–Вт. Деньги приходят в среду — на следующий день после вторника.
-          {isCurrentWeek && ' Неделя ещё идёт — сумма копится.'}
+          {t.summary.weekNote}
+          {isCurrentWeek && t.summary.weekNoteOngoing}
         </p>
       )}
 
       {period === 'month' && monthPayouts.length > 0 && (
         <section>
-          <h2 className="font-semibold mb-2">Выплаты месяца</h2>
+          <h2 className="font-semibold mb-2">{t.summary.monthPayouts}</h2>
           <div className="space-y-2">
             {monthPayouts.map((p) => {
               const paid = p.paidOn.getTime() <= today.getTime();
@@ -191,10 +191,10 @@ export function SummaryScreen() {
                 <Card key={p.paidOn.toISOString()} className="flex items-center justify-between">
                   <div>
                     <div className="font-semibold capitalize tabular">
-                      {format(p.paidOn, 'EEEE d MMM', { locale: ru })}
+                      {format(p.paidOn, 'EEEE d MMM', { locale })}
                     </div>
                     <div className="text-xs text-slate-400">
-                      за неделю {p.label} · {paid ? 'зачислено' : 'ожидается'}
+                      {t.summary.forWeek(p.label)} · {paid ? t.summary.credited : t.summary.expected}
                     </div>
                   </div>
                   <div
@@ -213,18 +213,10 @@ export function SummaryScreen() {
       )}
 
       {stats.count === 0 && (
-        <p className="text-center text-slate-500 text-sm pt-4">За этот период смен нет.</p>
+        <p className="text-center text-slate-500 text-sm pt-4">{t.summary.noShiftsPeriod}</p>
       )}
 
       <DataSection />
     </div>
   );
-}
-
-function pluralShifts(n: number): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return 'смены';
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'смен';
-  return 'смен';
 }

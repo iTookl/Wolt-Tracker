@@ -11,8 +11,10 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { EndShiftModal } from '../components/EndShiftModal';
 import { format } from 'date-fns';
+import { useI18n } from '../i18n/I18nProvider';
 
 export function HomeScreen() {
+  const { t } = useI18n();
   const { active, paused, startShift, togglePause, endShift, cancelShift } = useActiveShift();
   const [endOpen, setEndOpen] = useState(false);
 
@@ -23,12 +25,12 @@ export function HomeScreen() {
     return (
       <div className="flex flex-col min-h-[70vh] justify-center gap-8">
         <div className="text-center">
-          <h1 className="text-2xl font-bold">Готов к смене?</h1>
-          <p className="text-slate-400 mt-1">Нажми, чтобы засечь время точно.</p>
+          <h1 className="text-2xl font-bold">{t.home.ready}</h1>
+          <p className="text-slate-400 mt-1">{t.home.readyHint}</p>
         </div>
 
         <Button size="xl" full onClick={() => startShift()} className="text-3xl">
-          ▶ Начать смену
+          {t.home.startShift}
         </Button>
       </div>
     );
@@ -48,15 +50,15 @@ export function HomeScreen() {
               paused ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse',
             ].join(' ')}
           />
-          {paused ? 'На паузе' : 'Смена идёт'}
+          {paused ? t.home.onBreak : t.home.running}
         </div>
         <div className="text-slate-400 text-sm mt-1">
-          Начало: {format(new Date(active.startedAt), 'HH:mm')}
+          {t.home.startedAt(format(new Date(active.startedAt), 'HH:mm'))}
         </div>
       </div>
 
       <div className="text-center my-2">
-        <div className="text-xs uppercase tracking-widest text-slate-500">Чистое время</div>
+        <div className="text-xs uppercase tracking-widest text-slate-500">{t.home.netTime}</div>
         <div
           className={[
             'text-6xl sm:text-7xl font-extrabold tabular mt-1',
@@ -67,19 +69,22 @@ export function HomeScreen() {
         </div>
         {paused && (
           <div className="text-amber-400 mt-2 tabular">
-            Пауза: {formatDuration(breakMs)}
+            {t.home.pauseLabel(formatDuration(breakMs))}
           </div>
         )}
       </div>
 
       {breaksCount > 0 && (
         <Card className="text-center text-sm text-slate-400">
-          Перерывов: {breaksCount} · в сумме {formatHm(
-            active.breaks.reduce((sum, b) => {
-              const s = new Date(b.start).getTime();
-              const e = b.end ? new Date(b.end).getTime() : now;
-              return sum + Math.max(0, e - s);
-            }, 0)
+          {t.home.breaksSummary(
+            breaksCount,
+            formatHm(
+              active.breaks.reduce((sum, b) => {
+                const s = new Date(b.start).getTime();
+                const e = b.end ? new Date(b.end).getTime() : now;
+                return sum + Math.max(0, e - s);
+              }, 0)
+            )
           )}
         </Card>
       )}
@@ -91,20 +96,20 @@ export function HomeScreen() {
           variant={paused ? 'success' : 'subtle'}
           onClick={togglePause}
         >
-          {paused ? '▶ Продолжить' : '⏸ Пауза'}
+          {paused ? t.home.resume : t.home.pause}
         </Button>
 
         <Button size="xl" full variant="danger" onClick={() => setEndOpen(true)}>
-          ⏹ Завершить смену
+          {t.home.endShift}
         </Button>
 
         <button
           onClick={() => {
-            if (confirm('Отменить смену без сохранения в историю?')) cancelShift();
+            if (confirm(t.home.cancelConfirm)) cancelShift();
           }}
           className="w-full text-center text-sm text-slate-500 hover:text-slate-300 py-2"
         >
-          Отменить смену
+          {t.home.cancelShift}
         </button>
       </div>
 

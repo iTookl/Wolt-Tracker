@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useI18n } from '../i18n/I18nProvider';
 
 const DISMISS_KEY = 'wolt-tracker:iosHintDismissed';
 
@@ -19,6 +20,7 @@ function isStandalone(): boolean {
 }
 
 export function IosInstallHint() {
+  const { t } = useI18n();
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -42,13 +44,14 @@ export function IosInstallHint() {
       <div className="mx-auto max-w-md rounded-2xl bg-ink-800 border border-brand-500/30 shadow-xl px-4 py-3 flex items-center gap-3">
         <div className="text-2xl shrink-0">⬆️</div>
         <div className="text-sm leading-snug">
-          Установи на телефон: нажми{' '}
-          <span className="font-semibold">«Поделиться»</span> и выбери{' '}
-          <span className="font-semibold">«На экран „Домой"»</span>.
+          {t.ios.installPre}
+          <span className="font-semibold">{t.ios.installShare}</span>
+          {t.ios.installMid}
+          <span className="font-semibold">{t.ios.installAdd}</span>.
         </div>
         <button
           onClick={dismiss}
-          aria-label="Закрыть"
+          aria-label={t.ios.close}
           className="shrink-0 text-slate-400 hover:text-slate-200 text-xl leading-none px-1"
         >
           ✕

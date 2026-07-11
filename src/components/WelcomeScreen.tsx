@@ -1,25 +1,28 @@
 import { Button } from './ui/Button';
+import { LangToggle } from './layout/LangToggle';
+import { useI18n } from '../i18n/I18nProvider';
 
 interface Props {
   onDone: () => void;
 }
 
-const points = [
-  { icon: '⏱', title: 'Точное время смены', text: 'Засекает время по-настоящему — переживает блокировку экрана и перезагрузку.' },
-  { icon: '₪', title: 'Заработок в час', text: 'Считает ₪/час по каждой смене, с чаевыми. Видно, какие часы выгоднее.' },
-  { icon: '📅', title: 'Планы и выплаты', text: 'Планируй смены на календаре и следи, когда придут деньги Wolt.' },
-];
+const icons = ['⏱', '₪', '📅'];
 
 export function WelcomeScreen({ onDone }: Props) {
+  const { t } = useI18n();
+  const points = t.welcome.points.map((p, i) => ({ ...p, icon: icons[i] }));
   return (
     <div className="fixed inset-0 z-[60] bg-ink-950 flex flex-col safe-top safe-bottom">
+      <div className="px-6 pt-3 max-w-md mx-auto w-full flex justify-end">
+        <LangToggle />
+      </div>
       <div className="flex-1 flex flex-col justify-center px-6 max-w-md mx-auto w-full">
         <div className="text-center mb-8">
           <div className="mx-auto mb-4 h-20 w-20 rounded-3xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center text-4xl font-extrabold text-white shadow-lg shadow-brand-500/30">
             W
           </div>
           <h1 className="text-2xl font-bold">Wolt Tracker</h1>
-          <p className="text-slate-400 mt-1">Личный учёт смен и заработка курьера.</p>
+          <p className="text-slate-400 mt-1">{t.welcome.subtitle}</p>
         </div>
 
         <div className="space-y-4">
@@ -36,14 +39,12 @@ export function WelcomeScreen({ onDone }: Props) {
           ))}
         </div>
 
-        <p className="text-xs text-slate-500 text-center mt-8">
-          Все данные хранятся только на твоём телефоне. Без регистрации и интернета.
-        </p>
+        <p className="text-xs text-slate-500 text-center mt-8">{t.welcome.privacy}</p>
       </div>
 
       <div className="px-6 pb-4 max-w-md mx-auto w-full">
         <Button full size="xl" onClick={onDone}>
-          Начать
+          {t.welcome.start}
         </Button>
       </div>
     </div>

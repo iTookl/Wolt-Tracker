@@ -8,8 +8,9 @@ export function formatMoney(value: number | null): string {
   })} ₪`;
 }
 
-/** ₪/час. */
-export function formatRate(value: number | null): string {
+/** ₪/час. Суффикс единицы зависит от языка: «₪/ч» (ru) / «₪/h» (en). */
+export function formatRate(value: number | null, lang: 'ru' | 'en' = 'ru'): string {
   if (value == null || !Number.isFinite(value)) return '—';
-  return `${Math.round(value).toLocaleString('he-IL')} ₪/ч`;
+  const unit = lang === 'en' ? '₪/h' : '₪/ч';
+  return `${Math.round(value).toLocaleString('he-IL')} ${unit}`;
 }

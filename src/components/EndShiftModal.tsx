@@ -4,6 +4,7 @@ import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { activeMs, formatDuration, MS_PER_HOUR } from '../lib/time';
 import { formatMoney, formatRate } from '../lib/money';
+import { useI18n } from '../i18n/I18nProvider';
 
 interface Props {
   open: boolean;
@@ -19,6 +20,7 @@ interface Result {
 }
 
 export function EndShiftModal({ open, shift, onClose, onConfirm }: Props) {
+  const { t, lang } = useI18n();
   // Предзаполняем уже введёнными значениями (важно, когда смена продолжена
   // вторым периодом за день — заработок первого периода не теряется).
   const [earnings, setEarnings] = useState(shift.earnings?.toString() ?? '');
@@ -62,92 +64,92 @@ export function EndShiftModal({ open, shift, onClose, onConfirm }: Props) {
     <Modal
       open={open}
       onClose={onClose}
-      title={result ? 'Смена сохранена' : 'Завершить смену'}
+      title={result ? t.endShift.savedTitle : t.endShift.title}
       dismissable={!result}
     >
       {result ? (
         <div className="text-center">
           <div className="text-5xl my-2">✅</div>
-          <div className="text-sm text-slate-400">Заработок в час за эту смену</div>
+          <div className="text-sm text-slate-400">{t.endShift.ratePerShift}</div>
           <div className="text-5xl font-extrabold text-brand-400 tabular my-2">
-            {formatRate(result.rate)}
+            {formatRate(result.rate, lang)}
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3 text-left">
             <div className="rounded-xl bg-ink-800 p-3">
-              <div className="text-xs text-slate-400">Чистое время</div>
+              <div className="text-xs text-slate-400">{t.endShift.netTime}</div>
               <div className="text-lg font-semibold tabular">
                 {formatDuration(result.durationMs)}
               </div>
             </div>
             <div className="rounded-xl bg-ink-800 p-3">
-              <div className="text-xs text-slate-400">Заработок</div>
+              <div className="text-xs text-slate-400">{t.endShift.earnings}</div>
               <div className="text-lg font-semibold tabular">{formatMoney(result.earnings)}</div>
             </div>
           </div>
           <Button full size="lg" className="mt-5" onClick={onClose}>
-            Готово
+            {t.common.done}
           </Button>
         </div>
       ) : (
         <div className="space-y-4">
           <div className="rounded-xl bg-ink-800 p-3 text-center">
-            <div className="text-xs text-slate-400">Чистое рабочее время</div>
+            <div className="text-xs text-slate-400">{t.endShift.netWorkTime}</div>
             <div className="text-3xl font-bold tabular text-slate-50">
               {formatDuration(frozenMs)}
             </div>
           </div>
 
           <label className="block">
-            <span className="text-sm text-slate-300">Заработок, ₪ *</span>
+            <span className="text-sm text-slate-300">{t.endShift.earningsLabel}</span>
             <input
               type="number"
               inputMode="decimal"
               autoFocus
               value={earnings}
               onChange={(e) => setEarnings(e.target.value)}
-              placeholder="например, 180"
+              placeholder={t.endShift.earningsPlaceholder}
               className="mt-1 w-full rounded-xl bg-ink-800 border border-white/10 px-4 py-3 text-2xl font-semibold tabular outline-none focus:border-brand-500"
             />
           </label>
 
           <label className="block">
-            <span className="text-sm text-slate-300">Чаевые, ₪ (можно добавить позже)</span>
+            <span className="text-sm text-slate-300">{t.endShift.tipsLabel}</span>
             <input
               type="number"
               inputMode="decimal"
               value={tips}
               onChange={(e) => setTips(e.target.value)}
-              placeholder="если уже видны в Wolt"
+              placeholder={t.endShift.tipsPlaceholder}
               className="mt-1 w-full rounded-xl bg-ink-800 border border-white/10 px-4 py-3 outline-none focus:border-brand-500"
             />
           </label>
 
           <label className="block">
-            <span className="text-sm text-slate-300">Доставок (необязательно)</span>
+            <span className="text-sm text-slate-300">{t.endShift.deliveriesLabel}</span>
             <input
               type="number"
               inputMode="numeric"
               value={deliveries}
               onChange={(e) => setDeliveries(e.target.value)}
-              placeholder="например, 9"
+              placeholder={t.endShift.deliveriesPlaceholder}
               className="mt-1 w-full rounded-xl bg-ink-800 border border-white/10 px-4 py-3 outline-none focus:border-brand-500"
             />
           </label>
 
           <label className="block">
-            <span className="text-sm text-slate-300">Заметка (необязательно)</span>
+            <span className="text-sm text-slate-300">{t.endShift.noteLabel}</span>
             <input
               type="text"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="дождь, центр, и т.п."
+              placeholder={t.endShift.notePlaceholder}
               className="mt-1 w-full rounded-xl bg-ink-800 border border-white/10 px-4 py-3 outline-none focus:border-brand-500"
             />
           </label>
 
           <div className="flex gap-3 pt-1">
             <Button variant="subtle" size="lg" className="flex-1" onClick={onClose}>
-              Отмена
+              {t.common.cancel}
             </Button>
             <Button
               variant="success"
@@ -156,7 +158,7 @@ export function EndShiftModal({ open, shift, onClose, onConfirm }: Props) {
               disabled={!valid}
               onClick={handleConfirm}
             >
-              Сохранить
+              {t.common.save}
             </Button>
           </div>
         </div>

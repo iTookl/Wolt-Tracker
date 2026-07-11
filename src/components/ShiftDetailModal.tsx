@@ -12,6 +12,7 @@ import {
 } from '../lib/time';
 import { formatRate } from '../lib/money';
 import { format } from 'date-fns';
+import { useI18n } from '../i18n/I18nProvider';
 
 interface Props {
   open: boolean;
@@ -35,6 +36,7 @@ const segOk = (s: SegInput) =>
   s.start !== '' && s.end !== '' && new Date(s.end).getTime() > new Date(s.start).getTime();
 
 export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, onDelete }: Props) {
+  const { t, lang } = useI18n();
   const [segments, setSegments] = useState<SegInput[]>(() =>
     shiftToSegments(shift).map((s) => ({ start: toLocalInput(s.start), end: toLocalInput(s.end) }))
   );
@@ -96,17 +98,17 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={isNew ? 'Новая смена' : 'Детали смены'}>
+    <Modal open={open} onClose={onClose} title={isNew ? t.shiftDetail.newTitle : t.shiftDetail.title}>
       <div className="space-y-4">
         <div className="rounded-xl bg-ink-800 p-3 flex justify-between items-center">
           <div>
-            <div className="text-xs text-slate-400">Чистое время</div>
+            <div className="text-xs text-slate-400">{t.shiftDetail.netTime}</div>
             <div className="text-lg font-semibold tabular">{formatDuration(previewMs)}</div>
           </div>
           <div className="text-right">
-            <div className="text-xs text-slate-400">₪/час</div>
+            <div className="text-xs text-slate-400">{t.shiftDetail.rate}</div>
             <div className="text-lg font-bold text-brand-400 tabular">
-              {formatRate(previewRate)}
+              {formatRate(previewRate, lang)}
             </div>
           </div>
         </div>
@@ -114,9 +116,9 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
         {/* Периоды работы */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-300">Периоды работы</span>
+            <span className="text-sm text-slate-300">{t.shiftDetail.workPeriods}</span>
             {segments.length > 1 && (
-              <span className="text-xs text-slate-500">перерывы считаются между ними</span>
+              <span className="text-xs text-slate-500">{t.shiftDetail.breaksBetween}</span>
             )}
           </div>
 
@@ -131,19 +133,19 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
                 ].join(' ')}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-400">Период {i + 1}</span>
+                  <span className="text-xs text-slate-400">{t.shiftDetail.period(i + 1)}</span>
                   {segments.length > 1 && (
                     <button
                       onClick={() => removeSeg(i)}
                       className="text-xs text-rose-400/80 hover:text-rose-400 px-2 py-1"
                     >
-                      Удалить
+                      {t.common.delete}
                     </button>
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <label className="block">
-                    <span className="text-[11px] text-slate-500">Начало</span>
+                    <span className="text-[11px] text-slate-500">{t.shiftDetail.start}</span>
                     <input
                       type="datetime-local"
                       value={seg.start}
@@ -152,7 +154,7 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
                     />
                   </label>
                   <label className="block">
-                    <span className="text-[11px] text-slate-500">Конец</span>
+                    <span className="text-[11px] text-slate-500">{t.shiftDetail.end}</span>
                     <input
                       type="datetime-local"
                       value={seg.end}
@@ -169,13 +171,13 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
             onClick={addSeg}
             className="w-full rounded-xl border border-dashed border-white/15 text-slate-300 hover:bg-ink-800 py-2.5 text-sm font-medium"
           >
-            + Добавить период (после перерыва)
+            {t.shiftDetail.addPeriod}
           </button>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
-            <span className="text-sm text-slate-300">Заработок, ₪</span>
+            <span className="text-sm text-slate-300">{t.shiftDetail.earnings}</span>
             <input
               type="number"
               inputMode="decimal"
@@ -185,20 +187,20 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
             />
           </label>
           <label className="block">
-            <span className="text-sm text-slate-300">Чаевые, ₪</span>
+            <span className="text-sm text-slate-300">{t.shiftDetail.tips}</span>
             <input
               type="number"
               inputMode="decimal"
               value={tips}
               onChange={(e) => setTips(e.target.value)}
-              placeholder="позже"
+              placeholder={t.shiftDetail.tipsPlaceholder}
               className="mt-1 w-full rounded-xl bg-ink-800 border border-white/10 px-4 py-3 text-lg font-semibold tabular outline-none focus:border-brand-500"
             />
           </label>
         </div>
 
         <label className="block">
-          <span className="text-sm text-slate-300">Доставок</span>
+          <span className="text-sm text-slate-300">{t.shiftDetail.deliveries}</span>
           <input
             type="number"
             inputMode="numeric"
@@ -209,7 +211,7 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
         </label>
 
         <label className="block">
-          <span className="text-sm text-slate-300">Заметка</span>
+          <span className="text-sm text-slate-300">{t.shiftDetail.note}</span>
           <input
             type="text"
             value={note}
@@ -220,7 +222,7 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
 
         <div className="flex gap-3 pt-1">
           <Button variant="subtle" size="lg" className="flex-1" onClick={onClose}>
-            {isNew ? 'Отмена' : 'Закрыть'}
+            {isNew ? t.common.cancel : t.common.close}
           </Button>
           <Button
             variant="primary"
@@ -229,21 +231,21 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
             disabled={!hasValid}
             onClick={handleSave}
           >
-            {isNew ? 'Добавить' : 'Сохранить'}
+            {isNew ? t.common.add : t.common.save}
           </Button>
         </div>
 
         {!isNew && (
           <button
             onClick={() => {
-              if (confirm('Удалить эту смену? Действие необратимо.')) {
+              if (confirm(t.shiftDetail.deleteConfirm)) {
                 onDelete();
                 onClose();
               }
             }}
             className="w-full text-center text-sm text-rose-400/80 hover:text-rose-400 py-2"
           >
-            Удалить смену
+            {t.shiftDetail.deleteShift}
           </button>
         )}
       </div>

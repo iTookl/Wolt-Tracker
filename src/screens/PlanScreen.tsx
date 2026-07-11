@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { ru } from 'date-fns/locale';
+import { useI18n } from '../i18n/I18nProvider';
 import { useShifts } from '../hooks/useShifts';
 import { usePlannedShifts } from '../hooks/usePlannedShifts';
 import { useAppState } from '../state/AppState';
@@ -17,6 +17,7 @@ import type { PlannedShift, Shift } from '../types';
 import { newId } from '../lib/id';
 
 export function PlanScreen() {
+  const { t, locale, lang } = useI18n();
   const { completed, updateShift, deleteShift } = useShifts();
   const { planned, addPlanned, updatePlanned, deletePlanned } = usePlannedShifts();
   const { goals, setGoals } = useAppState();
@@ -47,9 +48,11 @@ export function PlanScreen() {
         monthDate,
         wstats,
         overall,
-        offDays
+        offDays,
+        new Date(),
+        locale
       ),
-    [completed, planned, goals.monthlyTarget, monthDate, wstats, overall, offDays]
+    [completed, planned, goals.monthlyTarget, monthDate, wstats, overall, offDays, locale]
   );
 
   const autoMap = useMemo(() => {
@@ -59,7 +62,7 @@ export function PlanScreen() {
   }, [plan.autoDays]);
   const restSet = useMemo(() => new Set(plan.restDays), [plan.restDays]);
 
-  const monthName = format(monthDate, 'LLLL', { locale: ru });
+  const monthName = format(monthDate, 'LLLL', { locale });
 
   const dayShifts = useMemo(
     () =>
@@ -96,7 +99,7 @@ export function PlanScreen() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">План</h1>
+      <h1 className="text-2xl font-bold">{t.plan.title}</h1>
 
       {!hasTarget || editTarget ? (
         <TargetEditor
@@ -118,7 +121,7 @@ export function PlanScreen() {
           ‹
         </button>
         <div className="font-semibold capitalize">
-          {format(monthDate, 'LLLL yyyy', { locale: ru })}
+          {format(monthDate, 'LLLL yyyy', { locale })}
         </div>
         <button
           onClick={() => setMonthOffset((o) => o + 1)}
@@ -141,11 +144,7 @@ export function PlanScreen() {
         onSelectDay={(k) => setSelectedDay(k)}
       />
 
-      <p className="text-xs text-slate-500">
-        Тапни день: отметить выходной, добавить/изменить смену или посмотреть факт. «Nч» —
-        рекомендованная длина смены под цель (сильные дни длиннее). Ручная смена или выходной
-        фиксируют день — остальные пересчитываются под цель.
-      </p>
+      <p className="text-xs text-slate-500">{t.plan.calendarHint}</p>
 
       {/* Лист дня */}
       {selectedDay && (
@@ -153,13 +152,13 @@ export function PlanScreen() {
           open={!!selectedDay}
           onClose={() => setSelectedDay(null)}
           title={capitalize(
-            format(new Date(`${selectedDay}T00:00`), 'EEEE, d MMMM', { locale: ru })
+            format(new Date(`${selectedDay}T00:00`), 'EEEE, d MMMM', { locale })
           )}
         >
           <div className="space-y-4">
             {dayShifts.length > 0 && (
               <section>
-                <h3 className="text-sm font-semibold text-slate-300 mb-2">Отработано</h3>
+                <h3 className="text-sm font-semibold text-slate-300 mb-2">{t.plan.worked}</h3>
                 <div className="space-y-2">
                   {dayShifts.map((s) => (
                     <button
@@ -177,7 +176,7 @@ export function PlanScreen() {
                         </div>
                       </div>
                       <div className="text-emerald-400 font-bold tabular">
-                        {formatRate(ratePerHour(s))}
+                        {formatRate(ratePerHour(s), lang)}
                       </div>
                     </button>
                   ))}
@@ -187,26 +186,22 @@ export function PlanScreen() {
 
             {dayAuto && !dayOff && dayShifts.length === 0 && dayPlans.length === 0 && (
               <div className="rounded-xl bg-brand-500/5 border border-brand-500/20 p-3 text-sm">
-                🎯 Под цель: <b className="tabular">{dayAuto.hours} ч</b> ·{' '}
+                🎯 {t.plan.goalDay}: <b className="tabular">{dayAuto.hours} {t.units.hour}</b> ·{' '}
                 <span className="tabular">≈ {formatMoney(Math.round(dayAuto.expected))}</span>
-                <div className="text-xs text-slate-400 mt-0.5">
-                  Рекомендация. Можешь закрепить сменой (задать точное время) или сделать день
-                  выходным — остальные дни пересчитаются.
-                </div>
+                <div className="text-xs text-slate-400 mt-0.5">{t.plan.recommendationNote}</div>
               </div>
             )}
 
             {dayRest && dayShifts.length === 0 && dayPlans.length === 0 && (
               <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 p-3 text-sm text-emerald-200">
-                😌 По графику этот день можно не работать — ты в графике под цель. Захочешь — всё
-                равно добавь смену.
+                {t.plan.restNote}
               </div>
             )}
 
             <section>
-              <h3 className="text-sm font-semibold text-slate-300 mb-2">Планы</h3>
+              <h3 className="text-sm font-semibold text-slate-300 mb-2">{t.plan.plansHeading}</h3>
               {dayPlans.length === 0 ? (
-                <p className="text-sm text-slate-500">На этот день планов нет.</p>
+                <p className="text-sm text-slate-500">{t.plan.noPlans}</p>
               ) : (
                 <div className="space-y-2">
                   {dayPlans.map((p) => (
@@ -221,11 +216,11 @@ export function PlanScreen() {
                         </div>
                         <div className="text-xs text-slate-400">
                           {p.targetEarnings != null
-                            ? `Цель: ${formatMoney(p.targetEarnings)}`
-                            : 'Без цели'}
+                            ? t.plan.planGoal(formatMoney(p.targetEarnings))
+                            : t.plan.noGoal}
                         </div>
                       </div>
-                      <span className="text-xs text-brand-400">изменить</span>
+                      <span className="text-xs text-brand-400">{t.plan.editWord}</span>
                     </button>
                   ))}
                 </div>
@@ -234,14 +229,14 @@ export function PlanScreen() {
 
             <div className="space-y-2">
               <Button full size="lg" onClick={() => setDraftPlan(makeDraftFor(selectedDay))}>
-                + Смена на этот день
+                {t.plan.addShiftForDay}
               </Button>
               {dayShifts.length === 0 && (
                 <button
                   onClick={() => toggleOff(selectedDay)}
                   className="w-full text-center text-sm text-slate-400 hover:text-slate-200 py-2"
                 >
-                  {dayOff ? '↩ Вернуть в план' : '🚫 Сделать выходным'}
+                  {dayOff ? t.plan.returnToPlan : t.plan.makeOff}
                 </button>
               )}
             </div>
@@ -292,13 +287,14 @@ function GoalCard({
   monthName: string;
   onEdit: () => void;
 }) {
+  const { t } = useI18n();
   const target = plan.target ?? 0;
   return (
     <Card className="space-y-3">
       <div className="flex items-baseline justify-between">
         <div>
           <div className="text-xs uppercase tracking-wide text-slate-400">
-            Цель · <span className="capitalize">{monthName}</span>
+            {t.plan.goalWord} · <span className="capitalize">{monthName}</span>
           </div>
           <div className="text-2xl font-bold tabular">{formatMoney(target)}</div>
         </div>
@@ -306,7 +302,7 @@ function GoalCard({
           onClick={onEdit}
           className="text-sm text-brand-400 hover:text-brand-300 py-1"
         >
-          Изменить
+          {t.common.edit}
         </button>
       </div>
 
@@ -319,48 +315,43 @@ function GoalCard({
         />
       </div>
       <div className="text-xs text-slate-400 tabular">
-        {formatMoney(plan.earned)} факт
-        {plan.manualPlanned > 0 && ` + ${formatMoney(Math.round(plan.manualPlanned))} план`} из{' '}
-        {formatMoney(target)}
+        {formatMoney(plan.earned)} {t.plan.factLabel}
+        {plan.manualPlanned > 0 &&
+          ` + ${formatMoney(Math.round(plan.manualPlanned))} ${t.plan.planLabel}`}{' '}
+        / {formatMoney(target)}
       </div>
 
       {plan.reached ? (
-        <div className="text-sm text-emerald-400">🎉 Цель закрыта — дальше чистый плюс.</div>
+        <div className="text-sm text-emerald-400">{t.plan.goalReached}</div>
       ) : (
         <div className="flex items-center justify-between text-sm">
           <span className="text-slate-300">
-            Осталось <b className="tabular">{formatMoney(plan.remaining)}</b>
+            {t.plan.remainingLabel} <b className="tabular">{formatMoney(plan.remaining)}</b>
           </span>
           <span className="text-brand-400 tabular">
-            нужно ≈ {formatMoney(plan.perWeekNeed)}/нед
+            {t.plan.perWeekNeed(formatMoney(plan.perWeekNeed))}
           </span>
         </div>
       )}
 
       {!plan.hasHistory && !plan.reached && (
-        <div className="text-xs text-amber-300">
-          Пока нет завершённых смен с заработком — график построится, когда накопится статистика.
-        </div>
+        <div className="text-xs text-amber-300">{t.plan.noHistoryNote}</div>
       )}
       {plan.hasHistory && !plan.reached && plan.workDays > 0 && (
         <div className="text-xs text-slate-400">
-          Чтобы дойти: ~<b className="text-slate-200 tabular">{plan.totalHours} ч</b> за{' '}
-          <span className="tabular">{plan.workDays} дн</span> · ≈
-          <span className="tabular">{Math.round(plan.totalHours / plan.workDays)} ч/день</span>
+          {t.plan.reachPrefix}
+          <b className="text-slate-200 tabular">{plan.totalHours} {t.units.hour}</b> {t.plan.reachOver}{' '}
+          <span className="tabular">{plan.workDays} {t.units.day}</span> · ≈
+          <span className="tabular">
+            {Math.round(plan.totalHours / plan.workDays)} {t.units.perDay}
+          </span>
           {!plan.feasible && (
-            <span className="text-rose-300">
-              {' '}
-              — даже так не хватает ~{Math.ceil(plan.shortfallHours)} ч: свободных дней в месяце в
-              обрез.
-            </span>
+            <span className="text-rose-300">{t.plan.shortfall(Math.ceil(plan.shortfallHours))}</span>
           )}
         </div>
       )}
       {plan.hasHistory && plan.restDays.length > 0 && (
-        <div className="text-xs text-emerald-300/90">
-          😌 Можно отдыхать: {plan.restDays.length} дн — по графику под цель они не нужны (отмечены
-          💤 в календаре).
-        </div>
+        <div className="text-xs text-emerald-300/90">{t.plan.canRest(plan.restDays.length)}</div>
       )}
     </Card>
   );
@@ -377,6 +368,7 @@ function TargetEditor({
   onSave: (v: number | null) => void;
   onCancel?: () => void;
 }) {
+  const { t } = useI18n();
   const [value, setValue] = useState(current?.toString() ?? '');
   function commit() {
     const n = value.trim() === '' ? null : Number(value.replace(',', '.'));
@@ -386,7 +378,9 @@ function TargetEditor({
     <Card className="space-y-3">
       <label className="block">
         <span className="text-sm text-slate-300">
-          Цель на <span className="capitalize">{monthName}</span> с чаевыми (как в Wolt), ₪
+          {t.plan.targetForPre}
+          <span className="capitalize">{monthName}</span>
+          {t.plan.targetForPost}
         </span>
         <input
           type="number"
@@ -394,18 +388,18 @@ function TargetEditor({
           value={value}
           autoFocus
           onChange={(e) => setValue(e.target.value)}
-          placeholder="например, 12000"
+          placeholder={t.plan.targetPlaceholder}
           className="mt-1 w-full rounded-xl bg-ink-800 border border-white/10 px-4 py-3 text-xl font-bold tabular outline-none focus:border-brand-500"
         />
       </label>
       <div className="flex gap-3">
         {onCancel && (
           <Button variant="subtle" className="flex-1" onClick={onCancel}>
-            Отмена
+            {t.common.cancel}
           </Button>
         )}
         <Button variant="primary" className="flex-1" onClick={commit}>
-          Сохранить
+          {t.common.save}
         </Button>
       </div>
     </Card>
@@ -413,9 +407,10 @@ function TargetEditor({
 }
 
 function WeeksBreakdown({ plan }: { plan: MonthPlan }) {
+  const { t, locale } = useI18n();
   return (
     <section className="space-y-1.5">
-      <h2 className="font-semibold text-sm">Недели Wolt</h2>
+      <h2 className="font-semibold text-sm">{t.plan.weeksTitle}</h2>
       <Card className="p-0 divide-y divide-white/5">
         {plan.weeks.map((w, i) => {
           const prog =
@@ -431,7 +426,7 @@ function WeeksBreakdown({ plan }: { plan: MonthPlan }) {
               </div>
               <div className="flex items-center justify-between mt-0.5">
                 <span className="text-[11px] text-brand-400/80 tabular">
-                  💰 {format(w.paidOn, 'EEE d MMM', { locale: ru })}
+                  💰 {format(w.paidOn, 'EEE d MMM', { locale })}
                 </span>
               </div>
               <div className="h-1.5 mt-1 rounded-full bg-ink-800 overflow-hidden">
@@ -444,9 +439,7 @@ function WeeksBreakdown({ plan }: { plan: MonthPlan }) {
           );
         })}
       </Card>
-      <p className="text-[11px] text-slate-500">
-        Месяц считается по приходу денег: недели, чья выплата в этом месяце. 💰 — день выплаты.
-      </p>
+      <p className="text-[11px] text-slate-500">{t.plan.weeksFootnote}</p>
     </section>
   );
 }

@@ -6,6 +6,7 @@ import {
   nextTuesday,
   startOfDay,
   subDays,
+  type Locale,
 } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
@@ -55,12 +56,12 @@ export function isInPayWeek(iso: string, week: PayWeek): boolean {
  * Заголовок расчётной недели по её краям: среда → вторник, «1–7 июл.».
  * Деньги за неделю приходят на следующий день после конца — см. `week.paidOn`.
  */
-export function payWeekLabel(week: PayWeek): string {
+export function payWeekLabel(week: PayWeek, locale: Locale = ru): string {
   const a = startOfDay(week.start); // среда
   const b = startOfDay(week.end); // вторник
   const sameMonth = a.getMonth() === b.getMonth();
   if (sameMonth) {
-    return `${format(a, 'd')}–${format(b, 'd MMM', { locale: ru })}`;
+    return `${format(a, 'd')}–${format(b, 'd MMM', { locale })}`;
   }
-  return `${format(a, 'd MMM', { locale: ru })} – ${format(b, 'd MMM', { locale: ru })}`;
+  return `${format(a, 'd MMM', { locale })} – ${format(b, 'd MMM', { locale })}`;
 }

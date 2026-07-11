@@ -1,3 +1,5 @@
+import { useI18n } from '../../i18n/I18nProvider';
+
 export type Tab = 'home' | 'history' | 'plan' | 'analytics';
 
 interface Props {
@@ -5,14 +7,15 @@ interface Props {
   onChange: (tab: Tab) => void;
 }
 
-const items: { id: Tab; label: string; icon: string }[] = [
-  { id: 'home', label: 'Смена', icon: '⏱' },
-  { id: 'history', label: 'История', icon: '📋' },
-  { id: 'plan', label: 'План', icon: '🎯' },
-  { id: 'analytics', label: 'Аналитика', icon: '📊' },
+const items: { id: Tab; icon: string }[] = [
+  { id: 'home', icon: '⏱' },
+  { id: 'history', icon: '📋' },
+  { id: 'plan', icon: '🎯' },
+  { id: 'analytics', icon: '📊' },
 ];
 
 export function TabBar({ active, onChange }: Props) {
+  const { t } = useI18n();
   return (
     <nav className="fixed bottom-0 inset-x-0 z-30 bg-ink-900/95 backdrop-blur border-t border-white/10 safe-bottom">
       <div className="mx-auto max-w-md grid grid-cols-4">
@@ -29,7 +32,7 @@ export function TabBar({ active, onChange }: Props) {
               ].join(' ')}
             >
               <span className="text-xl leading-none">{it.icon}</span>
-              <span className="text-[11px] font-medium">{it.label}</span>
+              <span className="text-[11px] font-medium">{t.tabs[it.id]}</span>
             </button>
           );
         })}

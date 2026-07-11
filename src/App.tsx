@@ -7,6 +7,7 @@ import { HomeScreen } from './screens/HomeScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
 import { PlanScreen } from './screens/PlanScreen';
 import { AnalyticsScreen } from './screens/AnalyticsScreen';
+import { LangToggle } from './components/layout/LangToggle';
 
 const WELCOME_KEY = 'wolt-tracker:welcomeSeen';
 
@@ -29,7 +30,10 @@ export default function App() {
 
   return (
     <div className="min-h-full">
-      <main className="mx-auto max-w-md px-4 pb-28 safe-top">
+      <div className="mx-auto max-w-md px-4 pt-2 flex justify-end safe-top">
+        <LangToggle />
+      </div>
+      <main className="mx-auto max-w-md px-4 pb-28">
         {tab === 'home' && <HomeScreen />}
         {tab === 'history' && <HistoryScreen />}
         {tab === 'plan' && <PlanScreen />}
