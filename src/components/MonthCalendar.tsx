@@ -135,9 +135,14 @@ export function MonthCalendar({
                 {off && <span className="text-[9px] leading-none">🚫</span>}
                 {rest && <span className="text-[9px] leading-none">💤</span>}
               </div>
+              {/* Конец расчётного периода. Не 💰: деньги приходят ПОСЛЕ этой даты,
+                  а точный день прихода нам неизвестен — не выдаём догадку за факт. */}
               {isPayout && (
-                <span className="absolute top-0.5 right-1 text-[9px] leading-none" title={t.calendar.payoutTitle}>
-                  💰
+                <span
+                  className="absolute top-0.5 right-1 text-[9px] leading-none"
+                  title={t.calendar.payoutTitle}
+                >
+                  🏁
                 </span>
               )}
             </button>
@@ -158,7 +163,7 @@ export function MonthCalendar({
         </span>
         <span className="flex items-center gap-1">🚫 {t.calendar.off}</span>
         <span className="flex items-center gap-1">💤 {t.calendar.canRest}</span>
-        <span className="flex items-center gap-1">💰 {t.calendar.payout}</span>
+        <span className="flex items-center gap-1">🏁 {t.calendar.payout}</span>
       </div>
     </div>
   );

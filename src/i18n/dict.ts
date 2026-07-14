@@ -149,7 +149,9 @@ export const ru = {
     weeksTitle: 'Периоды выплат',
     weeksFootnote:
       'Месяц считается по приходу денег: периоды, чья выплата в этом месяце. 💰 — конец периода, деньги приходят после него.',
-    payoutAfter: (date: string) => `💰 после ${date}`,
+    payoutAfter: (date: string) => `💰 выплата после ${date}`,
+    periodEndNote:
+      '🏁 Конец расчётного периода. Деньги за него придут ПОСЛЕ этой даты — не в этот день.',
   },
   payoutCard: {
     title: 'Выплаты Wolt',
@@ -168,8 +170,8 @@ export const ru = {
     underGoal: 'под цель',
     off: 'выходной',
     canRest: 'можно отдохнуть',
-    payout: 'конец периода',
-    payoutTitle: 'Конец расчётного периода — выплата после этой даты',
+    payout: 'конец периода (выплата после)',
+    payoutTitle: 'Конец расчётного периода — деньги придут после этой даты',
   },
   analytics: {
     summary: '📊 Сводка',
@@ -417,7 +419,9 @@ export const en: Translations = {
     weeksTitle: 'Payout periods',
     weeksFootnote:
       'The month is counted by when money arrives: periods whose payout falls in this month. 💰 is the end of a period — money comes after it.',
-    payoutAfter: (date: string) => `💰 after ${date}`,
+    payoutAfter: (date: string) => `💰 payout after ${date}`,
+    periodEndNote:
+      '🏁 End of the pay period. The money for it arrives AFTER this date — not on it.',
   },
   payoutCard: {
     title: 'Wolt payouts',
@@ -436,8 +440,8 @@ export const en: Translations = {
     underGoal: 'for goal',
     off: 'day off',
     canRest: 'can rest',
-    payout: 'period end',
-    payoutTitle: 'End of the pay period — payout comes after this date',
+    payout: 'period end (payout after)',
+    payoutTitle: 'End of the pay period — money arrives after this date',
   },
   analytics: {
     summary: '📊 Summary',

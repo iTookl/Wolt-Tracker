@@ -5,6 +5,7 @@ import { useShifts } from '../hooks/useShifts';
 import { usePlannedShifts } from '../hooks/usePlannedShifts';
 import { useAppState } from '../state/AppState';
 import { buildMonthPlan, overallBaseRate, weekdayStats, type MonthPlan } from '../lib/goal';
+import { cutoffOnOrAfter, hasPayoutSetup } from '../lib/payout';
 import { activeMs, formatHm, ratePerHour, totalEarnings } from '../lib/time';
 import { formatMoney, formatRate } from '../lib/money';
 import { MonthCalendar, dayKey } from '../components/MonthCalendar';
@@ -86,6 +87,15 @@ export function PlanScreen() {
   const dayPlans = useMemo(
     () => (selectedDay ? planned.filter((p) => p.date === selectedDay) : []),
     [planned, selectedDay]
+  );
+  // Конец расчётного периода: в этот день период закрывается, деньги придут позже.
+  const dayIsPeriodEnd = useMemo(
+    () =>
+      !!selectedDay &&
+      hasPayoutSetup(payouts) &&
+      format(cutoffOnOrAfter(new Date(`${selectedDay}T00:00`), payouts), 'yyyy-MM-dd') ===
+        selectedDay,
+    [selectedDay, payouts]
   );
   const dayAuto = selectedDay ? plan.autoByDay.get(selectedDay) : undefined;
   const dayOff = selectedDay ? offDays.has(selectedDay) : false;
@@ -172,6 +182,12 @@ export function PlanScreen() {
           )}
         >
           <div className="space-y-4">
+            {dayIsPeriodEnd && (
+              <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 p-3 text-sm text-amber-200">
+                {t.plan.periodEndNote}
+              </div>
+            )}
+
             {dayShifts.length > 0 && (
               <section>
                 <h3 className="text-sm font-semibold text-slate-300 mb-2">{t.plan.worked}</h3>
