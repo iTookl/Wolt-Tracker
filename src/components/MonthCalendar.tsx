@@ -10,7 +10,8 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns';
-import { payWeekOf } from '../lib/payout';
+import { cutoffOnOrAfter, hasPayoutSetup } from '../lib/payout';
+import type { PayoutSettings } from '../types';
 import { useI18n } from '../i18n/I18nProvider';
 
 const dayKey = (d: Date) => format(d, 'yyyy-MM-dd');
@@ -22,6 +23,7 @@ interface Props {
   autoDays?: Map<string, { hours: number }>; // рекомендации под цель (derived)
   offDays?: Set<string>; // выходные (заданы пользователем)
   restDays?: Set<string>; // свободные дни под цель — можно отдыхать
+  payouts: PayoutSettings; // ручные даты выплат — рисуем 💰 на концах периодов
   selected: string | null; // yyyy-MM-dd
   onSelectDay: (dateKey: string) => void;
 }
@@ -33,6 +35,7 @@ export function MonthCalendar({
   autoDays,
   offDays,
   restDays,
+  payouts,
   selected,
   onSelectDay,
 }: Props) {
@@ -58,15 +61,14 @@ export function MonthCalendar({
     return m;
   }, [shifts]);
 
-  // Дни выплат (среды) в видимом диапазоне.
+  // Концы расчётных периодов («payout after…») в видимом диапазоне.
+  // Пока ни одной даты не введено — 💰 не рисуем, чтобы не показывать догадку.
   const payoutDays = useMemo(() => {
     const set = new Set<string>();
-    for (const d of days) {
-      const w = payWeekOf(d);
-      set.add(dayKey(w.paidOn));
-    }
+    if (!hasPayoutSetup(payouts)) return set;
+    for (const d of days) set.add(dayKey(cutoffOnOrAfter(d, payouts)));
     return set;
-  }, [days]);
+  }, [days, payouts]);
 
   return (
     <div>

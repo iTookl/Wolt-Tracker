@@ -8,6 +8,7 @@ import { buildMonthPlan, overallBaseRate, weekdayStats, type MonthPlan } from '.
 import { activeMs, formatHm, ratePerHour, totalEarnings } from '../lib/time';
 import { formatMoney, formatRate } from '../lib/money';
 import { MonthCalendar, dayKey } from '../components/MonthCalendar';
+import { PayoutCard } from '../components/PayoutCard';
 import { PlannedShiftModal } from '../components/PlannedShiftModal';
 import { ShiftDetailModal } from '../components/ShiftDetailModal';
 import { Modal } from '../components/ui/Modal';
@@ -20,7 +21,7 @@ export function PlanScreen() {
   const { t, locale, lang } = useI18n();
   const { completed, updateShift, deleteShift } = useShifts();
   const { planned, addPlanned, updatePlanned, deletePlanned } = usePlannedShifts();
-  const { goals, setGoals } = useAppState();
+  const { goals, setGoals, payouts } = useAppState();
 
   const [monthOffset, setMonthOffset] = useState(0);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -49,10 +50,21 @@ export function PlanScreen() {
         wstats,
         overall,
         offDays,
+        payouts,
         new Date(),
         locale
       ),
-    [completed, planned, goals.monthlyTarget, monthDate, wstats, overall, offDays, locale]
+    [
+      completed,
+      planned,
+      goals.monthlyTarget,
+      monthDate,
+      wstats,
+      overall,
+      offDays,
+      payouts,
+      locale,
+    ]
   );
 
   const autoMap = useMemo(() => {
@@ -112,6 +124,9 @@ export function PlanScreen() {
         <GoalCard plan={plan} monthName={monthName} onEdit={() => setEditTarget(true)} />
       )}
 
+      <PayoutCard />
+
+
       {/* Навигатор месяца */}
       <div className="flex items-center justify-between bg-ink-900 rounded-xl border border-white/5 px-2 py-1.5">
         <button
@@ -140,6 +155,7 @@ export function PlanScreen() {
         autoDays={autoMap}
         offDays={offDays}
         restDays={restSet}
+        payouts={payouts}
         selected={selectedDay}
         onSelectDay={(k) => setSelectedDay(k)}
       />
@@ -426,7 +442,7 @@ function WeeksBreakdown({ plan }: { plan: MonthPlan }) {
               </div>
               <div className="flex items-center justify-between mt-0.5">
                 <span className="text-[11px] text-brand-400/80 tabular">
-                  💰 {format(w.paidOn, 'EEE d MMM', { locale })}
+                  {t.plan.payoutAfter(format(w.end, 'd MMM', { locale }))}
                 </span>
               </div>
               <div className="h-1.5 mt-1 rounded-full bg-ink-800 overflow-hidden">

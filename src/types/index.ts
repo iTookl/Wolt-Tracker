@@ -33,6 +33,17 @@ export interface Goals {
   offDays: string[]; // "yyyy-MM-dd" — выходные, исключаются из авто-плана под цель
 }
 
+/**
+ * Расчётные периоды выплат Wolt — задаются вручную.
+ * В приложении Wolt пишут «Next payout after 15 jul» — эту дату (конец периода)
+ * пользователь и вписывает. Периоды = промежутки между соседними датами;
+ * за пределами введённых дат достраиваются шагом `cadenceDays`.
+ */
+export interface PayoutSettings {
+  cutoffs: string[]; // "yyyy-MM-dd" — концы расчётных периодов, введённые вручную
+  cadenceDays: number; // шаг достройки периодов вперёд/назад (обычно 7)
+}
+
 /** Данные, которые вводятся при завершении смены. */
 export interface EndShiftInput {
   earnings: number;

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { format } from 'date-fns';
 import type { PlannedShift, Shift } from '../types';
+import { addCutoff, defaultPayoutSettings } from './payout';
 import {
   weekdayStats,
   overallBaseRate,
@@ -38,6 +39,8 @@ function uniformWstats(rate: number): WeekdayStat[] {
 }
 
 const JULY = new Date(2026, 6, 1);
+/** Без введённых дат — дефолтная сетка: период кончается во вторник. */
+const PAYOUTS = defaultPayoutSettings();
 
 describe('weekdayStats / overallBaseRate', () => {
   it('относит смену к дню недели и считает ставку по итогу', () => {
@@ -63,13 +66,13 @@ describe('weekdayStats / overallBaseRate', () => {
 });
 
 describe('cashMonthPeriod (июль 2026)', () => {
-  const { weeks, start, end } = cashMonthPeriod(JULY);
+  const { weeks, start, end } = cashMonthPeriod(JULY, PAYOUTS);
 
-  it('5 недель, чья выплата приходит в июле', () => {
+  it('5 периодов, чья выплата приходит в июле', () => {
     expect(weeks.length).toBe(5);
   });
 
-  it('первая неделя Ср 24 июн → Вт 30 июн (выплата 1 июл), последняя кончается Вт 28 июл', () => {
+  it('первый период Ср 24 июн → Вт 30 июн (выплата 1 июл), последний кончается Вт 28 июл', () => {
     expect(format(weeks[0].start, 'yyyy-MM-dd')).toBe('2026-06-24');
     expect(format(weeks[0].paidOn, 'yyyy-MM-dd')).toBe('2026-07-01');
     expect(format(weeks[4].paidOn, 'yyyy-MM-dd')).toBe('2026-07-29');
@@ -77,8 +80,23 @@ describe('cashMonthPeriod (июль 2026)', () => {
     expect(format(new Date(end), 'yyyy-MM-dd')).toBe('2026-07-28');
   });
 
-  it('все выплаты недель попадают в июль', () => {
+  it('все выплаты периодов попадают в июль', () => {
     expect(weeks.every((w) => w.paidOn.getMonth() === 6)).toBe(true);
+  });
+
+  it('ручные даты выплат сдвигают сетку кассового месяца', () => {
+    // Вписана одна дата: «payout after 15 июл» ⇒ сетка = …, 8 июл, 15 июл, 22 июл…
+    const cfg = addCutoff(defaultPayoutSettings(), '2026-07-15');
+    const { weeks: w } = cashMonthPeriod(JULY, cfg);
+    // Выплаты (конец + 1 день) попадают в июль у периодов с концами 1…29 июл.
+    expect(w.map((p) => format(p.end, 'yyyy-MM-dd'))).toEqual([
+      '2026-07-01',
+      '2026-07-08',
+      '2026-07-15',
+      '2026-07-22',
+      '2026-07-29',
+    ]);
+    expect(w[0].start.getDate()).toBe(25); // 25 июн — день после конца прошлого периода
   });
 });
 
@@ -86,7 +104,16 @@ describe('buildMonthPlan', () => {
   const wstats = uniformWstats(50);
 
   it('без истории (overall=null) график не строится', () => {
-    const plan = buildMonthPlan([], [], 1000, JULY, uniformWstats(0).map((s) => ({ ...s, ratePerHour: null })), null, new Set());
+    const plan = buildMonthPlan(
+      [],
+      [],
+      1000,
+      JULY,
+      uniformWstats(0).map((s) => ({ ...s, ratePerHour: null })),
+      null,
+      new Set(),
+      PAYOUTS
+    );
     expect(plan.hasHistory).toBe(false);
     expect(plan.autoDays.length).toBe(0);
     expect(plan.restDays.length).toBe(0);
@@ -95,7 +122,7 @@ describe('buildMonthPlan', () => {
   it('цель уже закрыта фактом → reached, весь остаток можно отдыхать', () => {
     const now = new Date(2026, 5, 24); // начало кассового периода
     const s = shift(new Date(2026, 5, 25, 18), new Date(2026, 5, 25, 22), 2000);
-    const plan = buildMonthPlan([s], [], 1000, JULY, wstats, 50, new Set(), now);
+    const plan = buildMonthPlan([s], [], 1000, JULY, wstats, 50, new Set(), PAYOUTS, now);
     expect(plan.reached).toBe(true);
     expect(plan.progress).toBe(1);
     expect(plan.remaining).toBe(0);
@@ -105,7 +132,7 @@ describe('buildMonthPlan', () => {
   it('строит короткий график под небольшую цель, остальное — дни отдыха', () => {
     // now близко к концу периода: доступны 26,27,28 июл (3 дня). Ставка 50, база 6ч.
     const now = new Date(2026, 6, 26);
-    const plan = buildMonthPlan([], [], 300, JULY, wstats, 50, new Set(), now);
+    const plan = buildMonthPlan([], [], 300, JULY, wstats, 50, new Set(), PAYOUTS, now);
     expect(plan.workDays).toBe(1); // одного дня 6ч×50=300 хватает
     expect(plan.totalHours).toBe(6);
     expect(plan.autoDays[0].expected).toBeCloseTo(300, 6);
@@ -117,7 +144,7 @@ describe('buildMonthPlan', () => {
   it('выходной день исключается из доступных под график', () => {
     const now = new Date(2026, 6, 26);
     const off = new Set(['2026-07-26']);
-    const plan = buildMonthPlan([], [], 300, JULY, wstats, 50, off, now);
+    const plan = buildMonthPlan([], [], 300, JULY, wstats, 50, off, PAYOUTS, now);
     // 26-е выходной ⇒ график встаёт на 27-е, свободным остаётся только 28-е.
     expect(plan.autoDays[0].dateKey).toBe('2026-07-27');
     expect(plan.restDays).toEqual(['2026-07-28']);
@@ -133,7 +160,7 @@ describe('buildMonthPlan', () => {
       targetEarnings: 250,
       auto: false,
     };
-    const plan = buildMonthPlan([], [manual], 300, JULY, wstats, 50, new Set(), now);
+    const plan = buildMonthPlan([], [manual], 300, JULY, wstats, 50, new Set(), PAYOUTS, now);
     expect(plan.manualPlanned).toBeCloseTo(250, 6);
     // 27-е занято ручным планом — авто-график его не трогает.
     expect(plan.autoDays.every((d) => d.dateKey !== '2026-07-27')).toBe(true);

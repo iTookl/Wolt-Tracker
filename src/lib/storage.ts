@@ -1,4 +1,5 @@
-import type { Goals, PlannedShift, Shift } from '../types';
+import type { Goals, PayoutSettings, PlannedShift, Shift } from '../types';
+import { DEFAULT_CADENCE_DAYS, defaultPayoutSettings } from './payout';
 
 /**
  * Изолированный слой хранения (репозиторий).
@@ -7,25 +8,33 @@ import type { Goals, PlannedShift, Shift } from '../types';
  */
 
 const KEY = 'wolt-tracker:db';
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 interface PersistShape {
   version: number;
   shifts: Shift[];
   planned: PlannedShift[];
   goals: Goals;
+  payouts: PayoutSettings;
 }
 
 export interface DbSnapshot {
   shifts: Shift[];
   planned: PlannedShift[];
   goals: Goals;
+  payouts: PayoutSettings;
 }
 
 const emptyGoals = (): Goals => ({ monthlyTarget: null, weeklyTarget: null, offDays: [] });
 
 function empty(): PersistShape {
-  return { version: SCHEMA_VERSION, shifts: [], planned: [], goals: emptyGoals() };
+  return {
+    version: SCHEMA_VERSION,
+    shifts: [],
+    planned: [],
+    goals: emptyGoals(),
+    payouts: defaultPayoutSettings(),
+  };
 }
 
 /** Нормализует цели из произвольных данных (v1 их не имел). */
@@ -35,6 +44,20 @@ function normalizeGoals(g: Partial<Goals> | null | undefined): Goals {
     weeklyTarget: g?.weeklyTarget ?? null,
     offDays: Array.isArray(g?.offDays) ? g!.offDays : [],
   };
+}
+
+/** Нормализует настройки выплат (до v3 их не было — сетка была захардкожена ср→вт). */
+export function normalizePayouts(
+  p: Partial<PayoutSettings> | null | undefined
+): PayoutSettings {
+  const cutoffs = Array.isArray(p?.cutoffs)
+    ? p!.cutoffs.filter((c): c is string => typeof c === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(c))
+    : [];
+  const cadence =
+    typeof p?.cadenceDays === 'number' && p.cadenceDays > 0
+      ? p.cadenceDays
+      : DEFAULT_CADENCE_DAYS;
+  return { cutoffs: [...new Set(cutoffs)].sort(), cadenceDays: cadence };
 }
 
 /** Точка для будущих миграций схемы (по data.version). */
@@ -60,6 +83,7 @@ function migrate(data: Partial<PersistShape> | null): PersistShape {
     // считается на лету и не персистится. Ручные планы остаются.
     planned: (Array.isArray(data.planned) ? data.planned : []).filter((p) => !p?.auto),
     goals: normalizeGoals(data.goals), // v1 → v2: цели появились здесь
+    payouts: normalizePayouts(data.payouts), // v2 → v3: ручные даты выплат
   };
 }
 
@@ -87,7 +111,7 @@ function write(data: PersistShape): void {
 export const storage = {
   load(): DbSnapshot {
     const d = read();
-    return { shifts: d.shifts, planned: d.planned, goals: d.goals };
+    return { shifts: d.shifts, planned: d.planned, goals: d.goals, payouts: d.payouts };
   },
 
   save(snapshot: DbSnapshot): void {

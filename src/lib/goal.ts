@@ -8,9 +8,9 @@ import {
   type Locale,
 } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import type { PlannedShift, Shift } from '../types';
+import type { PayoutSettings, PlannedShift, Shift } from '../types';
 import { activeHours, plannedRange, totalEarnings } from './time';
-import { payWeekOf, shiftPayWeek, type PayWeek } from './payout';
+import { payPeriodOf, shiftPayPeriod, type PayPeriod } from './payout';
 
 /**
  * Логика целей по заработку и авто-планировщик графика.
@@ -130,11 +130,11 @@ export interface MonthPlanDay {
 
 export interface WeekBucket {
   label: string;
-  start: Date; // край, обрезанный по месяцу
-  end: Date;
-  paidOn: Date; // среда — когда придут деньги за эту расчётную неделю Wolt
-  planned: number; // авто + ручные планы недели, ₪
-  earned: number; // факт по базе за неделю, ₪
+  start: Date;
+  end: Date; // конец расчётного периода (cutoff) — «payout after этой даты»
+  paidOn: Date; // ориентировочный день прихода денег за период
+  planned: number; // авто + ручные планы периода, ₪
+  earned: number; // факт по базе за период, ₪
 }
 
 export interface MonthPlan {
@@ -158,24 +158,29 @@ export interface MonthPlan {
 }
 
 /**
- * Кассовый месяц: набор недель Wolt, чья ВЫПЛАТА (`paidOn`) приходится на этот
- * календарный месяц. Так «июль» = деньги, полученные в июле; недели целые, без
- * обрезки по краям месяца (последняя неделя, платящаяся в августе, уедет в август,
+ * Кассовый месяц: набор расчётных периодов, чья ВЫПЛАТА (`paidOn`) приходится на
+ * этот календарный месяц. Так «июль» = деньги, полученные в июле; периоды целые,
+ * без обрезки по краям месяца (период, который платят в августе, уедет в август,
  * а конец июня с выплатой 1 июля войдёт в июль).
  */
-export function cashMonthPeriod(monthDate: Date): {
-  weeks: PayWeek[];
+export function cashMonthPeriod(
+  monthDate: Date,
+  payouts: PayoutSettings
+): {
+  weeks: PayPeriod[];
   start: number;
   end: number;
 } {
   const mStart = startOfMonth(monthDate).getTime();
   const mEnd = endOfMonth(monthDate).getTime();
-  let w = payWeekOf(subDays(startOfMonth(monthDate), 14));
-  while (w.paidOn.getTime() < mStart) w = shiftPayWeek(w, 1);
-  const weeks: PayWeek[] = [];
-  while (w.paidOn.getTime() <= mEnd) {
+  // Стартуем заведомо раньше месяца и шагаем вперёд, пока выплата не войдёт в месяц.
+  let w = payPeriodOf(subDays(startOfMonth(monthDate), 40), payouts);
+  let guard = 0;
+  while (w.paidOn.getTime() < mStart && guard++ < 60) w = shiftPayPeriod(w, 1, payouts);
+  const weeks: PayPeriod[] = [];
+  while (w.paidOn.getTime() <= mEnd && guard++ < 120) {
     weeks.push(w);
-    w = shiftPayWeek(w, 1);
+    w = shiftPayPeriod(w, 1, payouts);
   }
   const start = weeks.length ? weeks[0].start.getTime() : mStart;
   const end = weeks.length ? weeks[weeks.length - 1].end.getTime() : mEnd;
@@ -196,10 +201,15 @@ export function buildMonthPlan(
   wstats: WeekdayStat[],
   overall: number | null,
   offDays: Set<string>,
+  payouts: PayoutSettings,
   now: Date = new Date(),
   locale: Locale = ru
 ): MonthPlan {
-  const { weeks: periodWeeks, start: periodStart, end: periodEnd } = cashMonthPeriod(monthDate);
+  const {
+    weeks: periodWeeks,
+    start: periodStart,
+    end: periodEnd,
+  } = cashMonthPeriod(monthDate, payouts);
   const inMonth = (t: number) => t >= periodStart && t <= periodEnd;
   const todayStart = startOfDay(now).getTime();
   const rateFor = (wd: number) => wstats[wd]?.ratePerHour ?? overall ?? 0;

@@ -1,89 +1,109 @@
 import { describe, it, expect } from 'vitest';
 import { format } from 'date-fns';
 import {
-  payWeekOf,
-  shiftPayWeek,
-  isInPayWeek,
-  payWeekLabel,
+  addCutoff,
+  defaultPayoutSettings,
+  isInPayPeriod,
+  needsNextCutoff,
+  payPeriodLabel,
+  payPeriodOf,
+  removeCutoff,
+  shiftPayPeriod,
+  suggestNextCutoff,
 } from './payout';
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd');
+const cfgWith = (...dates: string[]) =>
+  dates.reduce((c, d) => addCutoff(c, d), defaultPayoutSettings());
 
-describe('payWeekOf', () => {
-  it('расчётный период = среда…вторник, выплата в следующую среду', () => {
-    // Сб 4 июл 2026 попадает в период Ср 1 → Вт 7, деньги Ср 8.
-    const w = payWeekOf(new Date(2026, 6, 4));
-    expect(iso(w.start)).toBe('2026-07-01'); // среда
-    expect(w.start.getDay()).toBe(3);
-    expect(iso(w.end)).toBe('2026-07-07'); // вторник
-    expect(w.end.getDay()).toBe(2);
-    expect(iso(w.paidOn)).toBe('2026-07-08'); // среда — на следующий день
-    expect(w.paidOn.getDay()).toBe(3);
+describe('дефолтная сетка (даты ещё не введены)', () => {
+  const cfg = defaultPayoutSettings();
+
+  it('период кончается ближайшим вторником, начинается средой', () => {
+    const p = payPeriodOf(new Date(2026, 6, 4), cfg); // сб 4 июл
+    expect(iso(p.start)).toBe('2026-07-01'); // ср
+    expect(iso(p.end)).toBe('2026-07-07'); // вт, включительно
+    expect(iso(p.paidOn)).toBe('2026-07-08');
   });
 
-  it('вторник закрывает свой же период (не уезжает в следующий)', () => {
-    const w = payWeekOf(new Date(2026, 6, 7)); // сам вторник
-    expect(iso(w.end)).toBe('2026-07-07');
-    expect(iso(w.start)).toBe('2026-07-01');
-    expect(iso(w.paidOn)).toBe('2026-07-08');
+  it('сам вторник входит в свой период, среда открывает следующий', () => {
+    expect(iso(payPeriodOf(new Date(2026, 6, 7), cfg).end)).toBe('2026-07-07');
+    expect(iso(payPeriodOf(new Date(2026, 6, 8), cfg).end)).toBe('2026-07-14');
   });
 
-  it('среда открывает новый период', () => {
-    const w = payWeekOf(new Date(2026, 6, 8)); // среда
-    expect(iso(w.start)).toBe('2026-07-08');
-    expect(iso(w.end)).toBe('2026-07-14');
-    expect(iso(w.paidOn)).toBe('2026-07-15');
-  });
-
-  it('end включает весь вторник (23:59:59), start — начало среды', () => {
-    const w = payWeekOf(new Date(2026, 6, 4));
-    expect(w.start.getHours()).toBe(0);
-    expect(w.end.getHours()).toBe(23);
-    expect(w.end.getMinutes()).toBe(59);
+  it('просит вписать первую дату', () => {
+    expect(needsNextCutoff(cfg, new Date(2026, 6, 4))).toBe(true);
   });
 });
 
-describe('shiftPayWeek', () => {
-  it('сдвиг на +1 неделю даёт следующий период', () => {
-    const w = shiftPayWeek(payWeekOf(new Date(2026, 6, 4)), 1);
-    expect(iso(w.start)).toBe('2026-07-08');
-    expect(iso(w.end)).toBe('2026-07-14');
+describe('период по введённой дате («Next payout after 15 jul»)', () => {
+  const cfg = cfgWith('2026-07-15');
+
+  it('конец периода = вписанная дата, включительно', () => {
+    const p = payPeriodOf(new Date(2026, 6, 14), cfg);
+    expect(iso(p.end)).toBe('2026-07-15');
+    expect(iso(p.start)).toBe('2026-07-09'); // день после предыдущей границы (8 июл)
+    expect(iso(p.paidOn)).toBe('2026-07-16');
+    expect(iso(payPeriodOf(new Date(2026, 6, 15), cfg).end)).toBe('2026-07-15');
   });
 
-  it('сдвиг −1 и +1 возвращает исходный период', () => {
-    const base = payWeekOf(new Date(2026, 6, 4));
-    const round = shiftPayWeek(shiftPayWeek(base, -1), 1);
-    expect(iso(round.start)).toBe(iso(base.start));
-    expect(iso(round.end)).toBe(iso(base.end));
-  });
-});
-
-describe('isInPayWeek', () => {
-  const w = payWeekOf(new Date(2026, 6, 4)); // 1–7 июл
-
-  it('дата внутри периода — true (границы включительно)', () => {
-    expect(isInPayWeek(new Date(2026, 6, 1, 0, 5).toISOString(), w)).toBe(true);
-    expect(isInPayWeek(new Date(2026, 6, 7, 23, 0).toISOString(), w)).toBe(true);
+  it('за пределами введённых дат сетка достраивается шагом 7 дней', () => {
+    expect(iso(payPeriodOf(new Date(2026, 6, 20), cfg).end)).toBe('2026-07-22');
+    expect(iso(payPeriodOf(new Date(2026, 6, 2), cfg).end)).toBe('2026-07-08');
+    expect(iso(payPeriodOf(new Date(2026, 5, 26), cfg).end)).toBe('2026-07-01');
   });
 
-  it('дата вне периода — false', () => {
-    expect(isInPayWeek(new Date(2026, 5, 30).toISOString(), w)).toBe(false); // до среды
-    expect(isInPayWeek(new Date(2026, 6, 8).toISOString(), w)).toBe(false); // следующая среда
+  it('период ещё идёт → новую дату не просим; после конца — просим', () => {
+    expect(needsNextCutoff(cfg, new Date(2026, 6, 14))).toBe(false);
+    expect(needsNextCutoff(cfg, new Date(2026, 6, 16))).toBe(true);
+  });
+
+  it('подсказка следующей даты = последняя + шаг', () => {
+    expect(suggestNextCutoff(cfg, new Date(2026, 6, 16))).toBe('2026-07-22');
   });
 });
 
-describe('payWeekLabel', () => {
-  it('в пределах одного месяца — «1–7 июл.»', () => {
-    const w = payWeekOf(new Date(2026, 6, 4));
-    expect(payWeekLabel(w)).toMatch(/^1–7\s/);
+describe('неровная сетка (даты идут не через 7 дней)', () => {
+  // Wolt сдвинул выплату: вписаны 15 и 26 июл.
+  const cfg = cfgWith('2026-07-15', '2026-07-26');
+
+  it('введённые даты — авторитетные границы, период между ними длиннее недели', () => {
+    const p = payPeriodOf(new Date(2026, 6, 20), cfg);
+    expect(iso(p.start)).toBe('2026-07-16');
+    expect(iso(p.end)).toBe('2026-07-26');
   });
 
-  it('на стыке месяцев показывает оба месяца', () => {
-    // Период, который начинается в июне и кончается в июле.
-    const w = payWeekOf(new Date(2026, 6, 1)); // Ср 1 июл сама → период 1-7 июл, не стык
-    // Возьмём период, пересекающий границу: конец июня.
-    const cross = shiftPayWeek(w, -1); // 24-30 июн
-    expect(cross.start.getMonth()).toBe(5); // июнь
-    expect(cross.end.getMonth()).toBe(5);
+  it('shiftPayPeriod ходит по границам в обе стороны', () => {
+    const p = payPeriodOf(new Date(2026, 6, 20), cfg); // 16–26 июл
+    expect(iso(shiftPayPeriod(p, -1, cfg).end)).toBe('2026-07-15');
+    expect(iso(shiftPayPeriod(p, 1, cfg).end)).toBe('2026-08-02'); // дальше — шагом 7
+    expect(iso(shiftPayPeriod(shiftPayPeriod(p, -1, cfg), 1, cfg).end)).toBe('2026-07-26');
+  });
+});
+
+describe('isInPayPeriod / payPeriodLabel', () => {
+  const cfg = cfgWith('2026-07-15');
+  const p = payPeriodOf(new Date(2026, 6, 14), cfg); // 9–15 июл
+
+  it('края периода включены', () => {
+    expect(isInPayPeriod(new Date(2026, 6, 9, 0, 5).toISOString(), p)).toBe(true);
+    expect(isInPayPeriod(new Date(2026, 6, 15, 23, 30).toISOString(), p)).toBe(true);
+  });
+
+  it('соседние дни не входят', () => {
+    expect(isInPayPeriod(new Date(2026, 6, 8, 23).toISOString(), p)).toBe(false);
+    expect(isInPayPeriod(new Date(2026, 6, 16).toISOString(), p)).toBe(false);
+  });
+
+  it('подпись по краям периода', () => {
+    expect(payPeriodLabel(p)).toMatch(/^9–15\s/);
+  });
+});
+
+describe('addCutoff / removeCutoff', () => {
+  it('даты уникальны и отсортированы', () => {
+    const cfg = cfgWith('2026-07-22', '2026-07-15', '2026-07-22');
+    expect(cfg.cutoffs).toEqual(['2026-07-15', '2026-07-22']);
+    expect(removeCutoff(cfg, '2026-07-15').cutoffs).toEqual(['2026-07-22']);
   });
 });

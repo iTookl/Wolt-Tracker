@@ -4,7 +4,12 @@ import { activeHours, totalEarnings } from '../lib/time';
 import { formatMoney, formatRate } from '../lib/money';
 import { StatCard, Card } from '../components/ui/Card';
 import { DataSection } from '../components/DataSection';
-import { isInPayWeek, payWeekLabel, payWeekOf, shiftPayWeek } from '../lib/payout';
+import {
+  isInPayPeriod,
+  payPeriodLabel,
+  payPeriodOf,
+  shiftPayPeriod,
+} from '../lib/payout';
 import {
   format,
   isSameMonth,
@@ -13,6 +18,7 @@ import {
   endOfMonth,
 } from 'date-fns';
 import { useI18n } from '../i18n/I18nProvider';
+import { useAppState } from '../state/AppState';
 import type { Shift } from '../types';
 
 type Period = 'week' | 'month' | 'all';
@@ -31,19 +37,23 @@ function agg(shifts: Shift[]) {
 export function SummaryScreen() {
   const { t, locale, lang } = useI18n();
   const { completed } = useShifts();
+  const { payouts } = useAppState();
   const [period, setPeriod] = useState<Period>('week');
   const periods: { id: Period; label: string }[] = [
     { id: 'week', label: t.summary.week },
     { id: 'month', label: t.summary.month },
     { id: 'all', label: t.summary.all },
   ];
-  const [weekOffset, setWeekOffset] = useState(0); // 0 = текущая расчётная неделя
+  const [weekOffset, setWeekOffset] = useState(0); // 0 = текущий расчётный период
   const [monthOffset, setMonthOffset] = useState(0);
 
-  const week = useMemo(() => shiftPayWeek(payWeekOf(new Date()), weekOffset), [weekOffset]);
+  const week = useMemo(
+    () => shiftPayPeriod(payPeriodOf(new Date(), payouts), weekOffset, payouts),
+    [weekOffset, payouts]
+  );
 
   const weekShifts = useMemo(
-    () => completed.filter((s) => isInPayWeek(s.startedAt, week)),
+    () => completed.filter((s) => isInPayPeriod(s.startedAt, week)),
     [completed, week]
   );
 
@@ -68,22 +78,27 @@ export function SummaryScreen() {
     if (period !== 'month') return [];
     const mStart = startOfMonth(monthDate);
     const mEnd = endOfMonth(monthDate);
-    const list: { paidOn: Date; label: string; amount: number }[] = [];
-    // Перебираем расчётные недели вокруг месяца.
+    const list: { end: Date; paidOn: Date; label: string; amount: number }[] = [];
+    // Перебираем расчётные периоды вокруг месяца.
     for (let i = -1; i <= 5; i++) {
-      const w = shiftPayWeek(payWeekOf(mStart), i);
+      const w = shiftPayPeriod(payPeriodOf(mStart, payouts), i, payouts);
       if (isWithinInterval(w.paidOn, { start: mStart, end: mEnd })) {
         const amount = completed
-          .filter((s) => isInPayWeek(s.startedAt, w))
+          .filter((s) => isInPayPeriod(s.startedAt, w))
           .reduce((sum, s) => sum + (totalEarnings(s) ?? 0), 0);
-        list.push({ paidOn: w.paidOn, label: payWeekLabel(w, locale), amount });
+        list.push({
+          end: w.end,
+          paidOn: w.paidOn,
+          label: payPeriodLabel(w, locale),
+          amount,
+        });
       }
     }
     return list.sort((a, b) => a.paidOn.getTime() - b.paidOn.getTime());
-  }, [period, monthDate, completed, locale]);
+  }, [period, monthDate, completed, locale, payouts]);
 
   const today = new Date();
-  const isCurrentWeek = isInPayWeek(today.toISOString(), week);
+  const isCurrentWeek = isInPayPeriod(today.toISOString(), week);
 
   return (
     <div className="space-y-4">
@@ -114,9 +129,9 @@ export function SummaryScreen() {
             ‹
           </button>
           <div className="text-center">
-            <div className="font-semibold">{payWeekLabel(week, locale)}</div>
+            <div className="font-semibold">{payPeriodLabel(week, locale)}</div>
             <div className="text-xs text-brand-400">
-              {t.summary.payoutOn(format(week.paidOn, 'EEEE d MMM', { locale }))}
+              {t.summary.payoutOn(format(week.end, 'd MMM', { locale }))}
             </div>
           </div>
           <button
@@ -190,8 +205,8 @@ export function SummaryScreen() {
               return (
                 <Card key={p.paidOn.toISOString()} className="flex items-center justify-between">
                   <div>
-                    <div className="font-semibold capitalize tabular">
-                      {format(p.paidOn, 'EEEE d MMM', { locale })}
+                    <div className="font-semibold tabular">
+                      {t.summary.payoutOn(format(p.end, 'd MMM', { locale }))}
                     </div>
                     <div className="text-xs text-slate-400">
                       {t.summary.forWeek(p.label)} · {paid ? t.summary.credited : t.summary.expected}

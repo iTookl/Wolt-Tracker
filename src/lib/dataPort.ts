@@ -1,9 +1,10 @@
-import type { Goals, PlannedShift, Shift } from '../types';
+import type { Goals, PayoutSettings, PlannedShift, Shift } from '../types';
 import type { Translations } from '../i18n/dict';
 import { activeHours, breaksMs, ratePerHour, totalEarnings } from './time';
+import { normalizePayouts } from './storage';
 import { format } from 'date-fns';
 
-const EXPORT_VERSION = 2;
+const EXPORT_VERSION = 3;
 
 export interface ExportBundle {
   app: 'wolt-tracker';
@@ -12,9 +13,15 @@ export interface ExportBundle {
   shifts: Shift[];
   planned: PlannedShift[];
   goals?: Goals;
+  payouts?: PayoutSettings;
 }
 
-export function buildJson(shifts: Shift[], planned: PlannedShift[], goals: Goals): string {
+export function buildJson(
+  shifts: Shift[],
+  planned: PlannedShift[],
+  goals: Goals,
+  payouts: PayoutSettings
+): string {
   const bundle: ExportBundle = {
     app: 'wolt-tracker',
     version: EXPORT_VERSION,
@@ -22,6 +29,7 @@ export function buildJson(shifts: Shift[], planned: PlannedShift[], goals: Goals
     shifts,
     planned,
     goals,
+    payouts,
   };
   return JSON.stringify(bundle, null, 2);
 }
@@ -79,6 +87,7 @@ export interface ParsedImport {
   shifts: Shift[];
   planned: PlannedShift[];
   goals: Goals;
+  payouts: PayoutSettings;
 }
 
 /** Разбор и валидация импортируемого JSON. Бросает ошибку при неверном формате. */
@@ -122,7 +131,9 @@ export function parseImport(text: string, t: Translations): ParsedImport {
     weeklyTarget: obj.goals?.weeklyTarget ?? null,
     offDays: Array.isArray(obj.goals?.offDays) ? obj.goals!.offDays : [],
   };
-  return { shifts, planned, goals };
+  // Бэкапы v1/v2 дат выплат не знают — получим пустые настройки (дефолтная сетка).
+  const payouts = normalizePayouts(obj.payouts);
+  return { shifts, planned, goals, payouts };
 }
 
 export function downloadFile(filename: string, mime: string, content: string): void {

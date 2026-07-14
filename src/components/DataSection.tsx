@@ -7,7 +7,8 @@ import { buildCsv, buildJson, downloadFile, parseImport, todayStamp } from '../l
 
 export function DataSection() {
   const { t } = useI18n();
-  const { shifts, planned, goals, setShifts, setPlanned, setGoals } = useAppState();
+  const { shifts, planned, goals, payouts, setShifts, setPlanned, setGoals, setPayouts } =
+    useAppState();
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -17,7 +18,7 @@ export function DataSection() {
     downloadFile(
       `wolt-tracker-${todayStamp()}.json`,
       'application/json',
-      buildJson(shifts, planned, goals)
+      buildJson(shifts, planned, goals, payouts)
     );
   }
 
@@ -38,6 +39,7 @@ export function DataSection() {
         setShifts(() => parsed.shifts);
         setPlanned(() => parsed.planned);
         setGoals(() => parsed.goals);
+        setPayouts(() => parsed.payouts);
         setMsg(t.data.importDone(parsed.shifts.length));
       } catch (err) {
         setMsg(`⚠️ ${(err as Error).message}`);
