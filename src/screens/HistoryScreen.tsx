@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useShifts } from '../hooks/useShifts';
 import { activeMs, formatHm, ratePerHour, totalEarnings } from '../lib/time';
-import { formatMoney, formatRate } from '../lib/money';
+import { formatMoney, formatPerKm, formatRate } from '../lib/money';
+import { shiftKm } from '../lib/distance';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ShiftDetailModal } from '../components/ShiftDetailModal';
@@ -59,6 +60,8 @@ export function HistoryScreen() {
         completed.map((s) => {
           const ms = activeMs(s);
           const rate = ratePerHour(s);
+          const km = shiftKm(s);
+          const perKm = km.perActualKm ?? km.perWoltKm;
           const hasBreaks = s.breaks.length > 0;
           return (
             <button key={s.id} onClick={() => setSelected(s)} className="w-full text-left">
@@ -96,6 +99,12 @@ export function HistoryScreen() {
                 </div>
                 <div className="text-right shrink-0 pl-2">
                   <div className="text-lg font-bold text-brand-400 tabular">{formatRate(rate, lang)}</div>
+                  {perKm != null && (
+                    <div className="text-xs text-slate-400 tabular">
+                      {formatPerKm(perKm, lang)}
+                      {km.perActualKm == null ? ' · Wolt' : ''}
+                    </div>
+                  )}
                 </div>
               </Card>
             </button>

@@ -1,5 +1,6 @@
 import type { Goals, PayoutSettings, PlannedShift, Shift } from '../types';
 import { DEFAULT_CADENCE_DAYS, defaultPayoutSettings } from './payout';
+import { cleanKm } from './distance';
 
 /**
  * Изолированный слой хранения (репозиторий).
@@ -61,7 +62,7 @@ export function normalizePayouts(
 }
 
 /** Точка для будущих миграций схемы (по data.version). */
-function migrate(data: Partial<PersistShape> | null): PersistShape {
+export function migrate(data: Partial<PersistShape> | null): PersistShape {
   if (!data) return empty();
   // Нормализуем форму: добавляем поля, появившиеся позже (tips), и отбрасываем
   // удалённые (vehicle) — поля перечислены явно, старые лишние ключи не протекают.
@@ -75,6 +76,8 @@ function migrate(data: Partial<PersistShape> | null): PersistShape {
     tips: s.tips ?? null,
     deliveries: s.deliveries ?? null,
     note: s.note ?? null,
+    woltKm: cleanKm(s.woltKm), // добавлено позже: у старых записей нет → null
+    actualKm: cleanKm(s.actualKm),
   }));
   return {
     version: SCHEMA_VERSION,

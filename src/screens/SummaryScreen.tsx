@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useShifts } from '../hooks/useShifts';
 import { activeHours, totalEarnings } from '../lib/time';
-import { formatMoney, formatRate } from '../lib/money';
+import { formatKm, formatMoney, formatPerKm, formatRate } from '../lib/money';
+import { aggregateKm } from '../lib/distance';
 import { StatCard, Card } from '../components/ui/Card';
 import { DataSection } from '../components/DataSection';
 import {
@@ -72,6 +73,8 @@ export function SummaryScreen() {
   const data =
     period === 'week' ? weekShifts : period === 'month' ? monthShifts : completed;
   const stats = agg(data);
+  const kmStats = aggregateKm(data);
+  const kmShifts = Math.max(kmStats.actualShifts, kmStats.woltShifts);
 
   // Выплаты, попадающие в выбранный месяц (по дате прихода денег).
   const monthPayouts = useMemo(() => {
@@ -188,6 +191,43 @@ export function SummaryScreen() {
           value={formatMoney(stats.totalEarnings)}
         />
       </div>
+
+      {stats.count > 0 && (
+        <section>
+          <h2 className="font-semibold mb-2">{t.km.summaryTitle}</h2>
+          {kmShifts === 0 ? (
+            <p className="text-sm text-slate-500">{t.km.noData}</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <StatCard
+                  label={t.km.perActualKm}
+                  value={formatPerKm(kmStats.perActualKm, lang)}
+                  hint={formatKm(kmStats.totalActualKm || null, lang)}
+                  accent
+                />
+                <StatCard
+                  label={t.km.perWoltKm}
+                  value={formatPerKm(kmStats.perWoltKm, lang)}
+                  hint={formatKm(kmStats.totalWoltKm || null, lang)}
+                />
+              </div>
+              {kmStats.emptyKm != null && (
+                <Card className="mt-3 flex items-center justify-between">
+                  <span className="text-sm text-slate-400">{t.km.emptyRun}</span>
+                  <span className="font-semibold tabular">
+                    {t.km.emptyValue(
+                      formatKm(kmStats.emptyKm, lang),
+                      (kmStats.emptyPct ?? 0).toLocaleString('he-IL', { maximumFractionDigits: 0 })
+                    )}
+                  </span>
+                </Card>
+              )}
+              <p className="mt-1 text-xs text-slate-500">{t.km.basedOn(kmShifts)}</p>
+            </>
+          )}
+        </section>
+      )}
 
       {period === 'week' && (
         <p className="text-xs text-slate-500">

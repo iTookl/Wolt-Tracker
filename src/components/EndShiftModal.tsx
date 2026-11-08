@@ -3,7 +3,9 @@ import type { EndShiftInput, Shift } from '../types';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { activeMs, formatDuration, MS_PER_HOUR } from '../lib/time';
-import { formatMoney, formatRate } from '../lib/money';
+import { formatMoney, formatPerKm, formatRate } from '../lib/money';
+import { kmDraftFrom, kmFromDraft } from '../lib/distance';
+import { KmFields } from './KmFields';
 import { useI18n } from '../i18n/I18nProvider';
 
 interface Props {
@@ -17,6 +19,8 @@ interface Result {
   durationMs: number;
   earnings: number;
   rate: number | null;
+  perKm: number | null; // ₪/км: по реальному пробегу, иначе по Wolt
+  perKmActual: boolean;
 }
 
 export function EndShiftModal({ open, shift, onClose, onConfirm }: Props) {
@@ -27,6 +31,8 @@ export function EndShiftModal({ open, shift, onClose, onConfirm }: Props) {
   const [tips, setTips] = useState(shift.tips?.toString() ?? '');
   const [deliveries, setDeliveries] = useState(shift.deliveries?.toString() ?? '');
   const [note, setNote] = useState(shift.note ?? '');
+  const [km, setKm] = useState(() => kmDraftFrom(shift));
+  const kmRes = kmFromDraft(km);
   const [result, setResult] = useState<Result | null>(null);
 
   // Момент окончания фиксируется один раз — когда открылась модалка
@@ -44,6 +50,8 @@ export function EndShiftModal({ open, shift, onClose, onConfirm }: Props) {
     const rate = hours > 0 ? total / hours : null;
 
     const deliveriesNum = deliveries.trim() === '' ? null : Number(deliveries);
+    const { woltKm, actualKm } = kmRes;
+    const kmBase = actualKm ?? woltKm;
 
     onConfirm(
       {
@@ -51,14 +59,23 @@ export function EndShiftModal({ open, shift, onClose, onConfirm }: Props) {
         tips: Number.isFinite(tipsNum as number) ? tipsNum : null,
         deliveries: Number.isFinite(deliveriesNum as number) ? deliveriesNum : null,
         note: note.trim() || null,
+        woltKm,
+        actualKm,
       },
       endAt
     );
 
-    setResult({ durationMs: frozenMs, earnings: total, rate });
+    setResult({
+      durationMs: frozenMs,
+      earnings: total,
+      rate,
+      perKm: kmBase != null && kmBase > 0 ? total / kmBase : null,
+      perKmActual: actualKm != null,
+    });
   }
 
-  const valid = earnings.trim() !== '' && Number(earnings.replace(',', '.')) >= 0;
+  const valid =
+    earnings.trim() !== '' && Number(earnings.replace(',', '.')) >= 0 && !kmRes.odometerError;
 
   return (
     <Modal
@@ -86,6 +103,14 @@ export function EndShiftModal({ open, shift, onClose, onConfirm }: Props) {
               <div className="text-lg font-semibold tabular">{formatMoney(result.earnings)}</div>
             </div>
           </div>
+          {result.perKm != null && (
+            <div className="mt-3 rounded-xl bg-ink-800 p-3 text-left">
+              <div className="text-xs text-slate-400">
+                {result.perKmActual ? t.km.perActualKm : t.km.perWoltKm}
+              </div>
+              <div className="text-lg font-semibold tabular">{formatPerKm(result.perKm, lang)}</div>
+            </div>
+          )}
           <Button full size="lg" className="mt-5" onClick={onClose}>
             {t.common.done}
           </Button>
@@ -135,6 +160,8 @@ export function EndShiftModal({ open, shift, onClose, onConfirm }: Props) {
               className="mt-1 w-full rounded-xl bg-ink-800 border border-white/10 px-4 py-3 outline-none focus:border-brand-500"
             />
           </label>
+
+          <KmFields draft={km} onChange={setKm} />
 
           <label className="block">
             <span className="text-sm text-slate-300">{t.endShift.noteLabel}</span>

@@ -10,7 +10,9 @@ import {
   shiftToSegments,
   type WorkSegment,
 } from '../lib/time';
-import { formatRate } from '../lib/money';
+import { formatPerKm, formatRate } from '../lib/money';
+import { kmDraftFrom, kmFromDraft } from '../lib/distance';
+import { KmFields } from './KmFields';
 import { format } from 'date-fns';
 import { useI18n } from '../i18n/I18nProvider';
 
@@ -44,6 +46,8 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
   const [tips, setTips] = useState(shift.tips?.toString() ?? '');
   const [deliveries, setDeliveries] = useState(shift.deliveries?.toString() ?? '');
   const [note, setNote] = useState(shift.note ?? '');
+  const [km, setKm] = useState(() => kmDraftFrom(shift));
+  const kmRes = kmFromDraft(km);
 
   const validSegs = segments.filter(segOk);
   const hasValid = validSegs.length > 0;
@@ -57,6 +61,8 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
   const total =
     earningsNum == null && tipsNum == null ? null : (earningsNum ?? 0) + (tipsNum ?? 0);
   const previewRate = total != null && previewMs > 0 ? total / (previewMs / MS_PER_HOUR) : null;
+  const kmBase = kmRes.actualKm ?? kmRes.woltKm;
+  const previewPerKm = total != null && kmBase != null && kmBase > 0 ? total / kmBase : null;
 
   function updateSeg(i: number, patch: Partial<SegInput>) {
     setSegments((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
@@ -78,7 +84,7 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
   }
 
   function handleSave() {
-    if (!hasValid) return;
+    if (!hasValid || kmRes.odometerError) return;
     const times = segmentsToTimes(
       validSegs.map<WorkSegment>((s) => ({
         start: fromLocalInput(s.start),
@@ -93,6 +99,8 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
       tips: tipsNum,
       deliveries: deliveries.trim() === '' ? null : Number(deliveries),
       note: note.trim() || null,
+      woltKm: kmRes.woltKm,
+      actualKm: kmRes.actualKm,
     });
     onClose();
   }
@@ -110,6 +118,9 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
             <div className="text-lg font-bold text-brand-400 tabular">
               {formatRate(previewRate, lang)}
             </div>
+            {previewPerKm != null && (
+              <div className="text-xs text-slate-400 tabular">{formatPerKm(previewPerKm, lang)}</div>
+            )}
           </div>
         </div>
 
@@ -210,6 +221,8 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
           />
         </label>
 
+        <KmFields draft={km} onChange={setKm} />
+
         <label className="block">
           <span className="text-sm text-slate-300">{t.shiftDetail.note}</span>
           <input
@@ -228,7 +241,7 @@ export function ShiftDetailModal({ open, shift, isNew = false, onClose, onSave, 
             variant="primary"
             size="lg"
             className="flex-1"
-            disabled={!hasValid}
+            disabled={!hasValid || kmRes.odometerError}
             onClick={handleSave}
           >
             {isNew ? t.common.add : t.common.save}

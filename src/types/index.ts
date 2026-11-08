@@ -15,6 +15,9 @@ export interface Shift {
   tips: number | null; // ₪ чаевые, можно вписать позже (в Wolt видны не сразу)
   deliveries: number | null; // опционально
   note: string | null;
+  // Добавлены позже — опциональны: старые записи их не имеют (= null).
+  woltKm?: number | null; // км по приложению Wolt (только по заказам)
+  actualKm?: number | null; // реальный пробег (одометр / оценка), включая пустые перегоны
 }
 
 export interface PlannedShift {
@@ -50,4 +53,6 @@ export interface EndShiftInput {
   tips?: number | null;
   deliveries?: number | null;
   note?: string | null;
+  woltKm?: number | null;
+  actualKm?: number | null;
 }

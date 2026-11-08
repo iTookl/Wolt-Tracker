@@ -2,6 +2,7 @@ import type { Goals, PayoutSettings, PlannedShift, Shift } from '../types';
 import type { Translations } from '../i18n/dict';
 import { activeHours, breaksMs, ratePerHour, totalEarnings } from './time';
 import { normalizePayouts } from './storage';
+import { cleanKm, shiftKm } from './distance';
 import { format } from 'date-fns';
 
 const EXPORT_VERSION = 3;
@@ -54,6 +55,11 @@ export function buildCsv(shifts: Shift[], t: Translations): string {
     c.ratePerHour,
     c.deliveries,
     c.note,
+    // Новые колонки — строго в конце, чтобы старые таблицы/формулы не съехали.
+    c.woltKm,
+    c.actualKm,
+    c.perWoltKm,
+    c.perActualKm,
   ];
   const rows = shifts
     .filter((s) => s.status === 'completed' && s.endedAt)
@@ -63,6 +69,7 @@ export function buildCsv(shifts: Shift[], t: Translations): string {
       const end = new Date(s.endedAt as string);
       const brMin = Math.round(breaksMs(s.breaks, end.getTime()) / 60000);
       const rate = ratePerHour(s);
+      const km = shiftKm(s);
       return [
         format(start, 'yyyy-MM-dd'),
         format(start, 'HH:mm'),
@@ -75,6 +82,10 @@ export function buildCsv(shifts: Shift[], t: Translations): string {
         rate == null ? '' : rate.toFixed(1),
         s.deliveries ?? '',
         s.note ?? '',
+        km.woltKm ?? '',
+        km.actualKm ?? '',
+        km.perWoltKm == null ? '' : km.perWoltKm.toFixed(2),
+        km.perActualKm == null ? '' : km.perActualKm.toFixed(2),
       ]
         .map(csvCell)
         .join(',');
@@ -112,6 +123,8 @@ export function parseImport(text: string, t: Translations): ParsedImport {
     tips: s.tips ?? null,
     deliveries: s.deliveries ?? null,
     note: s.note ?? null,
+    woltKm: cleanKm(s.woltKm), // бэкапы до фичи км этих полей не имеют → null
+    actualKm: cleanKm(s.actualKm),
   }));
   if (shifts.some((s) => !s.id || !s.startedAt)) {
     throw new Error(t.errors.corrupt);

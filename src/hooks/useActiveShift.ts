@@ -99,6 +99,8 @@ export function useActiveShift() {
           tips: input.tips ?? null,
           deliveries: input.deliveries ?? null,
           note: input.note ?? null,
+          woltKm: input.woltKm ?? null,
+          actualKm: input.actualKm ?? null,
         };
       })
     );
