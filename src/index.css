@@ -20,6 +20,18 @@ body {
   overscroll-behavior-y: none;
 }
 
+/*
+ * iOS, установленная PWA (black-translucent + viewport-fit=cover): если страница
+ * короче экрана (вкладка «Смена» без активной смены), fixed-меню снизу встаёт
+ * не к самому краю, а выше на высоту выреза сверху. Документ чуть выше экрана
+ * обходит этот баг WebKit; в браузере и на Android правило не действует.
+ */
+@media (display-mode: standalone) {
+  html {
+    min-height: calc(100% + env(safe-area-inset-top));
+  }
+}
+
 /* Безопасные зоны (вырезы/жесты iOS) */
 .safe-top {
   padding-top: env(safe-area-inset-top);
