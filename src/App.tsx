@@ -8,6 +8,7 @@ import { HistoryScreen } from './screens/HistoryScreen';
 import { PlanScreen } from './screens/PlanScreen';
 import { AnalyticsScreen } from './screens/AnalyticsScreen';
 import { LangToggle } from './components/layout/LangToggle';
+import { PayoutReminder } from './components/PayoutReminder';
 
 const WELCOME_KEY = 'wolt-tracker:welcomeSeen';
 
@@ -34,6 +35,8 @@ export default function App() {
         <LangToggle />
       </div>
       <main className="mx-auto max-w-md px-4 pb-28">
+        {/* На «Плане» та же форма уже есть в PayoutCard — баннер не дублируем. */}
+        {tab !== 'plan' && <PayoutReminder />}
         {tab === 'home' && <HomeScreen />}
         {tab === 'history' && <HistoryScreen />}
         {tab === 'plan' && <PlanScreen />}

@@ -10,7 +10,6 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns';
-import { cutoffOnOrAfter, hasPayoutSetup } from '../lib/payout';
 import type { PayoutSettings } from '../types';
 import { useI18n } from '../i18n/I18nProvider';
 
@@ -61,14 +60,9 @@ export function MonthCalendar({
     return m;
   }, [shifts]);
 
-  // Концы расчётных периодов («payout after…») в видимом диапазоне.
-  // Пока ни одной даты не введено — 💰 не рисуем, чтобы не показывать догадку.
-  const payoutDays = useMemo(() => {
-    const set = new Set<string>();
-    if (!hasPayoutSetup(payouts)) return set;
-    for (const d of days) set.add(dayKey(cutoffOnOrAfter(d, payouts)));
-    return set;
-  }, [days, payouts]);
+  // Концы расчётных периодов («payout after…») — только вписанные вручную даты,
+  // достроенную сеткой «+7 дней» догадку не рисуем.
+  const payoutDays = useMemo(() => new Set(payouts.cutoffs), [payouts]);
 
   return (
     <div>

@@ -4,12 +4,10 @@ import {
   addCutoff,
   defaultPayoutSettings,
   isInPayPeriod,
-  needsNextCutoff,
   payPeriodLabel,
   payPeriodOf,
   removeCutoff,
   shiftPayPeriod,
-  suggestNextCutoff,
 } from './payout';
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd');
@@ -30,10 +28,6 @@ describe('дефолтная сетка (даты ещё не введены)', 
     expect(iso(payPeriodOf(new Date(2026, 6, 7), cfg).end)).toBe('2026-07-07');
     expect(iso(payPeriodOf(new Date(2026, 6, 8), cfg).end)).toBe('2026-07-14');
   });
-
-  it('просит вписать первую дату', () => {
-    expect(needsNextCutoff(cfg, new Date(2026, 6, 4))).toBe(true);
-  });
 });
 
 describe('период по введённой дате («Next payout after 15 jul»)', () => {
@@ -51,15 +45,6 @@ describe('период по введённой дате («Next payout after 15 
     expect(iso(payPeriodOf(new Date(2026, 6, 20), cfg).end)).toBe('2026-07-22');
     expect(iso(payPeriodOf(new Date(2026, 6, 2), cfg).end)).toBe('2026-07-08');
     expect(iso(payPeriodOf(new Date(2026, 5, 26), cfg).end)).toBe('2026-07-01');
-  });
-
-  it('период ещё идёт → новую дату не просим; после конца — просим', () => {
-    expect(needsNextCutoff(cfg, new Date(2026, 6, 14))).toBe(false);
-    expect(needsNextCutoff(cfg, new Date(2026, 6, 16))).toBe(true);
-  });
-
-  it('подсказка следующей даты = последняя + шаг', () => {
-    expect(suggestNextCutoff(cfg, new Date(2026, 6, 16))).toBe('2026-07-22');
   });
 });
 

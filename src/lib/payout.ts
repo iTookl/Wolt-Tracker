@@ -133,17 +133,6 @@ export function currentCutoff(cfg: PayoutSettings, now: Date = new Date()): Date
   return cutoffOnOrAfter(now, cfg);
 }
 
-/**
- * Закрылся ли период, а новая дата ещё не введена — тогда просим вписать её.
- * Пока настроек нет, тоже просим (первый ввод).
- */
-export function needsNextCutoff(cfg: PayoutSettings, now: Date = new Date()): boolean {
-  const list = anchors(cfg);
-  if (list.length === 0) return true;
-  const last = list[list.length - 1];
-  return startOfDay(now).getTime() > last.getTime();
-}
-
 /** Подпись периода по его краям: «9–15 июл», «29 июн – 5 июл». */
 export function payPeriodLabel(period: PayPeriod, locale: Locale = ru): string {
   const a = startOfDay(period.start);
@@ -163,12 +152,4 @@ export function addCutoff(cfg: PayoutSettings, date: string): PayoutSettings {
 
 export function removeCutoff(cfg: PayoutSettings, date: string): PayoutSettings {
   return { ...cfg, cutoffs: cfg.cutoffs.filter((c) => c !== date) };
-}
-
-/** Дата, которую логично предложить как следующую: последняя + шаг. */
-export function suggestNextCutoff(cfg: PayoutSettings, now: Date = new Date()): string {
-  const list = anchors(cfg);
-  const base =
-    list.length > 0 ? addDays(list[list.length - 1], cadence(cfg)) : currentCutoff(cfg, now);
-  return format(base, 'yyyy-MM-dd');
 }

@@ -160,9 +160,17 @@ export const ru = {
     askTitle: 'Когда следующая выплата?',
     askHint:
       'В приложении Wolt написано «Next payout after …» — впиши эту дату. От неё считаются периоды, календарь и прогресс цели.',
-    periodClosed: (date: string) => `Период до ${date} закрыт — вписывай следующую дату.`,
+    periodClosed: (date: string) => `Выплата за ${date} прошла — впиши дату следующей.`,
     dateLabel: 'Дата из Wolt («payout after»)',
     editWord: 'Изменить',
+    countdown: (n: number) =>
+      n === 0 ? 'сегодня' : n === 1 ? 'завтра' : `через ${n} ${plural(n, 'день', 'дня', 'дней')}`,
+    errEmpty: 'Выбери дату',
+    errInvalid: 'Некорректная дата',
+    errPast: 'Дата уже прошла — выбери сегодня или позже',
+    reminderTitle: (date: string) => `Выплата за ${date} прошла`,
+    reminderText: 'Введи дату следующей выплаты',
+    later: 'Позже',
   },
   calendar: {
     worked: 'отработано',
@@ -430,9 +438,17 @@ export const en: Translations = {
     askTitle: 'When is the next payout?',
     askHint:
       'The Wolt app says “Next payout after …” — enter that date. Periods, the calendar and goal progress are derived from it.',
-    periodClosed: (date: string) => `The period up to ${date} is closed — enter the next date.`,
+    periodClosed: (date: string) => `The ${date} payout has passed — enter the next date.`,
     dateLabel: 'Date from Wolt (“payout after”)',
     editWord: 'Edit',
+    countdown: (n: number) =>
+      n === 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`,
+    errEmpty: 'Pick a date',
+    errInvalid: 'Invalid date',
+    errPast: 'That date has passed — pick today or later',
+    reminderTitle: (date: string) => `The ${date} payout has passed`,
+    reminderText: 'Enter the next payout date',
+    later: 'Later',
   },
   calendar: {
     worked: 'worked',

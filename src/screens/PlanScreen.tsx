@@ -5,7 +5,6 @@ import { useShifts } from '../hooks/useShifts';
 import { usePlannedShifts } from '../hooks/usePlannedShifts';
 import { useAppState } from '../state/AppState';
 import { buildMonthPlan, overallBaseRate, weekdayStats, type MonthPlan } from '../lib/goal';
-import { cutoffOnOrAfter, hasPayoutSetup } from '../lib/payout';
 import { activeMs, formatHm, ratePerHour, totalEarnings } from '../lib/time';
 import { formatMoney, formatRate } from '../lib/money';
 import { MonthCalendar, dayKey } from '../components/MonthCalendar';
@@ -89,14 +88,8 @@ export function PlanScreen() {
     [planned, selectedDay]
   );
   // Конец расчётного периода: в этот день период закрывается, деньги придут позже.
-  const dayIsPeriodEnd = useMemo(
-    () =>
-      !!selectedDay &&
-      hasPayoutSetup(payouts) &&
-      format(cutoffOnOrAfter(new Date(`${selectedDay}T00:00`), payouts), 'yyyy-MM-dd') ===
-        selectedDay,
-    [selectedDay, payouts]
-  );
+  // Только вписанные вручную даты — без догадок по сетке.
+  const dayIsPeriodEnd = !!selectedDay && payouts.cutoffs.includes(selectedDay);
   const dayAuto = selectedDay ? plan.autoByDay.get(selectedDay) : undefined;
   const dayOff = selectedDay ? offDays.has(selectedDay) : false;
   const dayRest = selectedDay ? restSet.has(selectedDay) : false;
