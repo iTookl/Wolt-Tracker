@@ -91,9 +91,16 @@ export function cutoffOnOrAfter(d: Date, cfg: PayoutSettings): Date {
 
 /** Предыдущая граница периода (строго раньше `cutoff`). */
 function previousCutoff(cutoff: Date, cfg: PayoutSettings): Date {
-  const earlier = anchors(cfg).filter((a) => a.getTime() < cutoff.getTime());
-  if (earlier.length > 0) return earlier[earlier.length - 1];
-  return subDays(cutoff, cadence(cfg));
+  const list = anchors(cfg);
+  const earlier = list.filter((a) => a.getTime() < cutoff.getTime());
+  if (earlier.length === 0) return subDays(cutoff, cadence(cfg));
+  // Граница за последней вписанной датой — точка сетки: предыдущая = шаг назад,
+  // а не сама последняя вписанная дата (иначе периоды «11–17» и «11–24» перекрывались).
+  if (earlier.length === list.length) {
+    const back = subDays(cutoff, cadence(cfg));
+    if (back.getTime() >= list[list.length - 1].getTime()) return back;
+  }
+  return earlier[earlier.length - 1];
 }
 
 /** Расчётный период, в который попадает дата `d`. */

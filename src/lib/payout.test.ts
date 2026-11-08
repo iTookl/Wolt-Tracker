@@ -92,3 +92,25 @@ describe('addCutoff / removeCutoff', () => {
     expect(removeCutoff(cfg, '2026-07-15').cutoffs).toEqual(['2026-07-22']);
   });
 });
+
+describe('сетка за последней вписанной датой', () => {
+  const cfg = cfgWith('2026-10-27', '2026-11-03', '2026-11-10');
+
+  it('периоды не перекрываются: 11–17, затем 18–24', () => {
+    const p17 = payPeriodOf(new Date(2026, 10, 15), cfg);
+    expect([iso(p17.start), iso(p17.end)]).toEqual(['2026-11-11', '2026-11-17']);
+    const p24 = payPeriodOf(new Date(2026, 10, 20), cfg);
+    expect([iso(p24.start), iso(p24.end)]).toEqual(['2026-11-18', '2026-11-24']);
+  });
+
+  it('шаг назад от периода за сеткой попадает в соседний, без пропусков', () => {
+    const p24 = payPeriodOf(new Date(2026, 10, 20), cfg);
+    expect(iso(shiftPayPeriod(p24, -1, cfg).end)).toBe('2026-11-17');
+    expect(iso(shiftPayPeriod(p24, -2, cfg).end)).toBe('2026-11-10');
+  });
+
+  it('периоды внутри вписанных дат не изменились', () => {
+    const p = payPeriodOf(new Date(2026, 10, 5), cfg);
+    expect([iso(p.start), iso(p.end)]).toEqual(['2026-11-04', '2026-11-10']);
+  });
+});
