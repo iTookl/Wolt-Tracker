@@ -84,7 +84,7 @@ export const ru = {
   km: {
     section: 'Километры (необязательно)',
     woltKm: 'Км по Wolt',
-    woltKmHint: 'из приложения Wolt — только по заказам',
+    woltKmHint: 'только по заказам',
     actualKm: 'Реальный пробег',
     modeNumber: 'Число, км',
     modeOdometer: 'Одометр',
@@ -385,7 +385,7 @@ export const en: Translations = {
   km: {
     section: 'Kilometres (optional)',
     woltKm: 'Wolt km',
-    woltKmHint: 'from the Wolt app — orders only',
+    woltKmHint: 'orders only',
     actualKm: 'Actual distance',
     modeNumber: 'Number, km',
     modeOdometer: 'Odometer',
